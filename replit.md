@@ -8,6 +8,7 @@ Protótipo demo (Fase 1) para o Instituto Combustível Legal: app de confiança 
 - `pnpm run typecheck` — typecheck completo; `pnpm -w run typecheck:libs` — rebuilda dist das libs (necessário após mudar schema/spec)
 - `pnpm --filter @workspace/api-spec run codegen` — regenera hooks React Query + Zod do OpenAPI
 - `pnpm --filter @workspace/db run push-force` — aplica schema no Postgres sem prompt TTY
+- `pnpm run test:e2e` — executa o teste Playwright do fluxo completo da demonstração; requer os workflows da API e web ativos
 - Env: `DATABASE_URL` (Postgres), `SESSION_SECRET` (hash de sessão em analytics)
 - Seed automático no boot da API (`seedIfEmpty`): ~73 postos determinísticos (seed mulberry32 fixo), 5 flagships com selo nos pontos de teleporte da demo. `POST /api/demo/reset` re-seeda tudo.
 
