@@ -289,9 +289,25 @@ function montarPostosSeed(): NovoPosto[] {
   return lista;
 }
 
-export async function seed(): Promise<{ postos: number; recompensas: number }> {
+/** Executor de queries: o banco global ou uma transação em andamento. */
+type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Identificador da trava consultiva do Postgres que serializa seed/reset.
+ * Em autoscale, várias instâncias podem subir ao mesmo tempo; sem a trava,
+ * todas veriam o banco vazio e aplicariam o seed em duplicidade.
+ */
+const TRAVA_SEED = 727_001;
+
+/** Interno: sempre chamar através de seedIfEmpty/resetDemo (que seguram a trava). */
+async function seed(
+  executor: Executor = db,
+): Promise<{ postos: number; recompensas: number }> {
   const dados = montarPostosSeed();
-  const inseridos = await db.insert(postos).values(dados).returning({ id: postos.id });
+  const inseridos = await executor
+    .insert(postos)
+    .values(dados)
+    .returning({ id: postos.id });
 
   // Snapshot de classificação por posto (auditoria dos critérios)
   const snapshots = dados.map((p, i) => {
@@ -303,8 +319,8 @@ export async function seed(): Promise<{ postos: number; recompensas: number }> {
     });
     return { postoId: inseridos[i].id, tier, score, criterios };
   });
-  await db.insert(classificacoes).values(snapshots);
-  await db.insert(recompensas).values(RECOMPENSAS_SEED);
+  await executor.insert(classificacoes).values(snapshots);
+  await executor.insert(recompensas).values(RECOMPENSAS_SEED);
 
   logger.info(
     { postos: inseridos.length, selo: dados.filter((d) => d.tier === "selo").length },
@@ -314,23 +330,33 @@ export async function seed(): Promise<{ postos: number; recompensas: number }> {
 }
 
 export async function seedIfEmpty(): Promise<void> {
-  const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(postos);
-  if (total > 0) return;
-  await seed();
+  await db.transaction(async (tx) => {
+    // Somente uma instância aplica o seed; as demais aguardam a trava
+    // e encontram os dados já criados.
+    await tx.execute(sql`select pg_advisory_xact_lock(${TRAVA_SEED})`);
+    const [{ total }] = await tx
+      .select({ total: sql<number>`count(*)::int` })
+      .from(postos);
+    if (total > 0) return;
+    await seed(tx);
+  });
 }
 
-/** Limpa todos os dados e recria o cenário inicial da demonstração. */
+/** Limpa todos os dados e recria o cenário inicial da demonstração (atômico). */
 export async function resetDemo(): Promise<void> {
-  await db.delete(eventos);
-  await db.delete(checkins);
-  await db.delete(resgates);
-  await db.delete(transacoesPontos);
-  await db.delete(carteiras);
-  await db.delete(usuarios);
-  await db.delete(denuncias);
-  await db.delete(classificacoes);
-  await db.delete(rotasCache);
-  await db.delete(postos);
-  await db.delete(recompensas);
-  await seed();
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${TRAVA_SEED})`);
+    await tx.delete(eventos);
+    await tx.delete(checkins);
+    await tx.delete(resgates);
+    await tx.delete(transacoesPontos);
+    await tx.delete(carteiras);
+    await tx.delete(usuarios);
+    await tx.delete(denuncias);
+    await tx.delete(classificacoes);
+    await tx.delete(rotasCache);
+    await tx.delete(postos);
+    await tx.delete(recompensas);
+    await seed(tx);
+  });
 }

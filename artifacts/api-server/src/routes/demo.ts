@@ -3,7 +3,7 @@ import { GerarEventosDemoBody } from "@workspace/api-zod";
 import { db, postos, recompensas } from "@workspace/db";
 import { geohash5 } from "../lib/geo";
 import { isRedeAssociada } from "../lib/score";
-import { seed, resetDemo } from "../lib/seed";
+import { seedIfEmpty, resetDemo } from "../lib/seed";
 import { publicarEvento, type PublicarEventoInput } from "../lib/sse";
 import { validar } from "../lib/validar";
 import { logger } from "../lib/logger";
@@ -32,13 +32,19 @@ router.post("/demo/eventos", async (req, res) => {
 
   const quantidade = Math.max(1, Math.min(30, body.quantidade ?? 6));
 
-  const [todosPostos, todasRecompensas] = await Promise.all([
+  let [todosPostos, todasRecompensas] = await Promise.all([
     db.select().from(postos),
     db.select().from(recompensas),
   ]);
 
   if (todosPostos.length === 0) {
-    await seed();
+    // Passa pela trava consultiva (pode correr com o seed de boot) e
+    // recarrega as listas — as consultas acima vieram do banco vazio.
+    await seedIfEmpty();
+    [todosPostos, todasRecompensas] = await Promise.all([
+      db.select().from(postos),
+      db.select().from(recompensas),
+    ]);
   }
 
   const rede = todosPostos.filter((p) => isRedeAssociada(p.bandeira));
