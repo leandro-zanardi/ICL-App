@@ -1,0 +1,65 @@
+PROMPT (colar no Replit Agent)
+
+Vamos substituir o seed do protótipo por dados reais da ANP, replicando o modelo de dados do app oficial "ANP Com Vc – Postos". Implemente nesta ordem: modelo de dados → réplica da nota oficial → worker de ingestão → telas. Não avance de etapa sem a anterior aceita.
+
+1) Modelo de dados (Drizzle/Postgres)
+
+Expandir postos e criar tabelas filhas. Chaves da ANP: CNPJ (14 dígitos, sem pontuação) e cod_instalacao (código interno da instalação).
+
+postos (expandir): cod_instalacao_anp, cnpj (unique), razao_social, nome_fantasia, tipo_posto, distribuidora, inicio_distribuidora (date), situacao ("EM OPERAÇÃO" etc.), endereco, complemento, bairro, cep, municipio, uf, lat, lng, tempo_autorizacao_anos, status_recebimento (texto ANP, ex.: "Recebeu apenas da distribuidora", "Sem distribuidora associada", "Recebeu ,01% de outras distribuidoras"), nota_anp (int 0–5, coletada), nota_calculada (int 0–5, nossa réplica), sincronizado_em (timestamp).
+autorizacoes: posto_id, numero_autorizacao (ex.: PR/SP0025909), portaria_resolucao, numero_despacho, numero_processo, data_envio_dou, data_publicacao_dou.
+produtos_posto: posto_id, produto, bicos_abastecimento (int), volume_tancagem_m3 (int) — uma linha por tanque/registro.
+fiscalizacoes: posto_id, numero_df, data_fiscalizacao, tipo_convenio, fiscalizacao_de_campo (bool/texto). Janela ANP: últimos 5 anos.
+irregularidades: posto_id, numero_df, data_fiscalizacao, classificacao ("vício de qualidade" | "vício de quantidade" | outra), descricao, componente_df.
+amostras_pmqc: posto_id, data_coleta, produto, conforme (bool). Janela ANP: últimos 5 anos.
+ensaios_nao_conformes: posto_id, data_coleta, produto, nome_ensaio (ex.: "Teor de Etanol"), resultado (texto/numérico).
+origem_combustivel: posto_id, distribuidora_posto, distribuidora_origem, volume_pct (numeric). Janela ANP: últimos 6 meses.
+anp_raw_snapshots: posto_id?, pagina (alias), url_sem_sessao, conteudo (jsonb/text), coletado_em — auditoria bruta de toda coleta, base da rastreabilidade.
+2) Réplica da Nota oficial ANP (fórmula pública, exibida no próprio app da ANP)
+
+Implementar como função pura testável:
+
+desconto = 2 × infrações(0–2 anos)
+         + 1 × infrações(2–5 anos)
+         + 1 × amostrasNC(0–2 anos)
+         + 0,5 × amostrasNC(2–5 anos)
+nota = 5 − round(desconto)          // arredondar o desconto para o inteiro mais próximo ANTES de subtrair
+nota = 0 se posto inativo, interditado totalmente ou desconto > 5
+
+Infrações = irregularidades por vício de qualidade ou quantidade. AmostrasNC = amostras PMQC não conformes. Gravar nota_calculada e comparar com nota_anp coletada: divergência gera log de alerta (é o teste de validação da réplica). Testes unitários cobrindo: posto limpo (5), 1 amostra NC recente (4), infração recente + amostra antiga, inativo (0), desconto > 5 (0).
+
+3) Selo Combustível Legal — regra derivada e transparente
+
+Selo (parametrizável em config): situacao = "EM OPERAÇÃO" e nota ≥ 4 e zero irregularidades nos últimos 24 meses e origem consistente (recebeu ≥ 95% da própria distribuidora, ou bandeira branca sem alerta de origem). A ficha SEMPRE lista quais critérios o posto atende. Postos sem selo continuam neutros no mapa — a nota oficial completa aparece só na ficha, citando a fonte ANP.
+
+4) Worker de ingestão (duas estratégias combinadas)
+
+A — Base bulk (primeiro): manter/usar o importador /admin/importar para os CSVs de dados abertos da ANP (revendedores autorizados; fiscalização; PMQC) como carga cadastral e histórica inicial.
+
+B — Scraper do app oficial (complemento para nota, origem e frescor): worker Node + Playwright (chromium headless), pois o app é Oracle APEX com sessão + checksums (session, cs) — nunca montar URLs diretamente; navegar mantendo a sessão. Fluxo por município-alvo (começar: CAMPINAS-SP e SAO PAULO-SP):
+
+Abrir /ordsdw/r/sfi_apex/anpcomvcpostos/home → "Visualizar Postos da Cidade" → selecionar município (select com valores internos, ex.: CAMPINAS - SP = 9025) → "Mostrar no Mapa".
+A página postos-mapa?p6_municipio=&p6_uf= carrega TODOS os postos do município em uma chamada (wwv_flow.ajax) — interceptar via page.on('response') o payload dos pins (cnpj, lat/lng, nota, campos do modal) e persistir.
+Para cada CNPJ novo ou com sincronizado_em > 7 dias, navegar e parsear o DOM destas páginas (aliases confirmados):
+posto-geral?p08_cnpj_filtro={cnpj} → dados gerais, situação, status do recebimento, tempo de operação, nota, resumos de fiscalização e PMQC
+posto-detalhe?p9_cod_instalacao=&p9_cnpj_filtro= → cadastro completo, endereço/CEP, autorização (portaria, despacho, processo, DOU), produtos/bicos/tancagem
+fiscalizacoes?p10_cod_instalacao=&p10_cnpj= → tabelas Fiscalizações (nº DF, data, tipo de convênio, fiscalização de campo) e Irregularidades (classificação, descrição, componente do DF)
+amostras?p11_cod_instalacao=&p11_cnpj= → Amostras coletadas (data, produto, conforme) e Ensaios não conformes (nome do ensaio, resultado)
+origem-combustivel?p12_cod_instalacao=&p12_cnpj= → origem por distribuidora com % de volume
+Persistir o bruto de cada página em anp_raw_snapshots antes de normalizar.
+
+Regras de civilidade (obrigatórias): máx. 1 página/segundo; User-Agent identificado ("ICL-AppPrototipo/1.0 (+contato)"); cache com TTL 24h por posto; retry com backoff exponencial e circuit breaker (aborta o job após 5 falhas seguidas); rodar 1x/dia por município (cron) e sob demanda em /admin/sincronizar-anp, que mostra log da execução (postos lidos, atualizados, divergências de nota, erros).
+
+5) Telas com o dado real
+Ficha do posto (reescrever): cabeçalho com selo (se houver) + nota oficial em estrelas 0–5; botão "Como a nota é calculada" abrindo modal com a fórmula acima e os eventos deste posto que entraram no cálculo; seções colapsáveis: Fiscalizações (resumo 6 métricas + lista de DFs/irregularidades), Qualidade do combustível (amostras PMQC com data/produto/conforme + ensaios não conformes com nome e resultado), Origem do combustível (tabela distribuidora × %), Produtos e bicos, Autorização ANP. Rodapé fixo: "Fonte: ANP (Agência Nacional do Petróleo) — atualizado em {sincronizado_em}".
+Mapa: manter a lógica selo (pin destacado) vs demais (pin neutro). Não colorir por nota no mapa — a nota completa vive na ficha, citada como dado oficial.
+Dashboard /apresentacao: três cards novos com o dado real: distribuição de notas da rede da associada, postos com amostra não conforme nos últimos 12 meses, postos com origem inconsistente.
+Denúncia: ao concluir, oferecer link "Registrar também nos canais oficiais da ANP".
+Rodapé do app: "Dados públicos da ANP. O ICL não altera os registros oficiais."
+6) Critérios de aceite
+Sincronização completa de Campinas-SP (≈200 postos) sem erro, com log.
+nota_calculada == nota_anp em ≥ 95% dos postos; divergências listadas no log do admin.
+Ficha do posto exibindo todas as seções com dado real e fonte/data.
+Mapa e /apresentacao alimentados pelos postos reais.
+Toda informação da ficha rastreável: snapshot bruto correspondente em anp_raw_snapshots.
+Scraper respeitando 1 req/s comprovado no log (timestamps).
