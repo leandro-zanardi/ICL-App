@@ -49,7 +49,10 @@ export function DenunciaQueueProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [lastSent, setLastSent] = useState<SentDenuncia | null>(null);
   const queueRef = useRef(queue);
-  const flushing = useRef(false);
+  // All callers share the same pass. This is important when an online event
+  // arrives while a submission is already being processed.
+  const flushPromise = useRef<Promise<void> | null>(null);
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sentResponses = useRef(new Map<string, DenunciaResposta>());
 
   const updateQueue = useCallback((next: DenunciaQueueItem[]) => {
@@ -59,35 +62,47 @@ export function DenunciaQueueProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const flush = useCallback(async () => {
-    if (!navigator.onLine || flushing.current) return;
-    flushing.current = true;
-    try {
-      for (const item of [...queueRef.current]) {
-        if (!navigator.onLine) break;
-        const current = queueRef.current.find((entry) => entry.id === item.id);
-        if (!current) continue;
-        updateQueue(queueRef.current.map((entry) => entry.id === item.id ? { ...entry, status: 'sending', error: undefined } : entry));
-        try {
-          const response = await criarDenuncia(item.data);
-          sentResponses.current.set(item.id, response);
-          updateQueue(queueRef.current.filter((entry) => entry.id !== item.id));
-          setLastSent({ id: item.id, response });
-        } catch (error) {
-          updateQueue(queueRef.current.map((entry) => entry.id === item.id ? {
-            ...entry,
-            status: 'error',
-            error: errorMessage(error),
-          } : entry));
+    if (!navigator.onLine) return;
+    if (flushPromise.current) return flushPromise.current;
+
+    // Start on the next microtask so flushPromise is assigned before the
+    // empty-queue path can reach its finally block.
+    const run = Promise.resolve().then(async () => {
+      try {
+        for (const item of [...queueRef.current]) {
+          if (!navigator.onLine) break;
+          const current = queueRef.current.find((entry) => entry.id === item.id);
+          // A previous pass may have completed this item while this snapshot
+          // was being prepared. Never submit the same queue entry twice.
+          if (!current || current.status === 'sending') continue;
+          updateQueue(queueRef.current.map((entry) => entry.id === item.id ? { ...entry, status: 'sending', error: undefined } : entry));
+          try {
+            const response = await criarDenuncia(item.data);
+            sentResponses.current.set(item.id, response);
+            updateQueue(queueRef.current.filter((entry) => entry.id !== item.id));
+            setLastSent({ id: item.id, response });
+          } catch (error) {
+            updateQueue(queueRef.current.map((entry) => entry.id === item.id ? {
+              ...entry,
+              status: 'error',
+              error: errorMessage(error),
+            } : entry));
+          }
+        }
+      } finally {
+        flushPromise.current = null;
+        // A new item may have been added while another item was in flight.
+        // Schedule one more pass without immediately retrying persistent errors.
+        if (navigator.onLine && queueRef.current.some((entry) => entry.status === 'pending') && !flushTimer.current) {
+          flushTimer.current = setTimeout(() => {
+            flushTimer.current = null;
+            void flush();
+          }, 0);
         }
       }
-    } finally {
-      flushing.current = false;
-      // A new item may have been added while another item was in flight.
-      // Schedule one more pass without immediately retrying persistent errors.
-      if (navigator.onLine && queueRef.current.some((entry) => entry.status === 'pending')) {
-        setTimeout(() => void flush(), 0);
-      }
-    }
+    });
+    flushPromise.current = run;
+    return run;
   }, [updateQueue]);
 
   const sendDenuncia = useCallback(async (data: DenunciaInput): Promise<SendResult> => {
@@ -113,7 +128,7 @@ export function DenunciaQueueProvider({ children }: { children: ReactNode }) {
 
   const retryDenuncia = useCallback((id: string) => {
     const item = queueRef.current.find((entry) => entry.id === id);
-    if (!item) return;
+    if (!item || item.status === 'sending') return;
     updateQueue(queueRef.current.map((entry) => entry.id === id ? { ...entry, status: 'pending', error: undefined } : entry));
     void flush();
   }, [flush, updateQueue]);
@@ -130,6 +145,7 @@ export function DenunciaQueueProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (flushTimer.current) clearTimeout(flushTimer.current);
     };
   }, [flush]);
 
