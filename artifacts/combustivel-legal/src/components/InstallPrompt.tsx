@@ -10,6 +10,8 @@ type InstallEvent = Event & {
 export function InstallPrompt() {
   const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [hasOpenDialog, setHasOpenDialog] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches || localStorage.getItem('cl_install_dismissed')) return;
@@ -25,16 +27,48 @@ export function InstallPrompt() {
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
   }, []);
 
+  useEffect(() => {
+    const markInteraction = () => {
+      // O toque que fecha onboarding ou qualquer outro diálogo não conta como
+      // interação para o prompt: ele só pode surgir em uma ação posterior.
+      if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+      setHasInteracted(true);
+      window.removeEventListener('pointerdown', markInteraction);
+      window.removeEventListener('keydown', markInteraction);
+    };
+    window.addEventListener('pointerdown', markInteraction, { passive: true });
+    window.addEventListener('keydown', markInteraction);
+    return () => {
+      window.removeEventListener('pointerdown', markInteraction);
+      window.removeEventListener('keydown', markInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
+    const checkOpenDialog = () => {
+      setHasOpenDialog(Boolean(document.querySelector('[role="dialog"][data-state="open"]')));
+    };
+    checkOpenDialog();
+    const observer = new MutationObserver(checkOpenDialog);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['data-state', 'role'],
+      childList: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, []);
+
   const dismiss = () => {
     localStorage.setItem('cl_install_dismissed', 'true');
     setInstallEvent(null);
     setShowIosHint(false);
   };
 
-  if (!installEvent && !showIosHint) return null;
+  if ((!installEvent && !showIosHint) || !hasInteracted || hasOpenDialog) return null;
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+76px)] left-3 right-3 z-[600] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2">
+    <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+76px)] inset-x-3 z-40 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
       <button aria-label="Fechar instrução de instalação" onClick={dismiss} className="absolute right-2 top-2 rounded-full p-1 text-slate-400 hover:bg-slate-100">
         <X className="h-4 w-4" />
       </button>

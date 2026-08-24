@@ -70,7 +70,7 @@ router.get("/postos/:id", async (req, res) => {
   const [posto] = await db.select().from(postos).where(eq(postos.id, id)).limit(1);
 
   if (!posto) {
-    res.status(404).json({ error: "Posto não encontrado." });
+    res.status(404).json({ erro: "Posto não encontrado." });
     return;
   }
 

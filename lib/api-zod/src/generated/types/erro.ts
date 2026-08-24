@@ -7,5 +7,5 @@
  */
 
 export interface Erro {
-  error: string;
+  erro: string;
 }

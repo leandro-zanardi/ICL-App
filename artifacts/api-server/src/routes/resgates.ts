@@ -57,7 +57,7 @@ router.post("/resgates", requireAuth, async (req, res) => {
     .limit(1);
 
   if (!recompensa || !recompensa.ativa) {
-    res.status(404).json({ error: "Recompensa não encontrada." });
+    res.status(404).json({ erro: "Recompensa não encontrada." });
     return;
   }
 
@@ -67,7 +67,7 @@ router.post("/resgates", requireAuth, async (req, res) => {
   if (saldo < recompensa.custoPontos) {
     const faltam = recompensa.custoPontos - saldo;
     res.status(409).json({
-      error: `Pontos insuficientes: faltam ${faltam} pontos para este resgate.`,
+      erro: `Pontos insuficientes: faltam ${faltam} pontos para este resgate.`,
     });
     return;
   }

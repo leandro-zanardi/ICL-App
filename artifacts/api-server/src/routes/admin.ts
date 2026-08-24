@@ -71,7 +71,7 @@ router.post("/admin/importar", async (req, res) => {
   const parsed = parseCsvAnp(body.csv);
   if (parsed.linhas.length === 0) {
     res.status(400).json({
-      error: parsed.erros[0] ?? "Nenhuma linha válida encontrada no CSV.",
+      erro: parsed.erros[0] ?? "Nenhuma linha válida encontrada no CSV.",
     });
     return;
   }

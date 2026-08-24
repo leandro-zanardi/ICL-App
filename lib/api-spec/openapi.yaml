@@ -423,9 +423,9 @@ components:
         - status
     Erro:
       type: object
-      required: [error]
+      required: [erro]
       properties:
-        error: { type: string }
+        erro: { type: string }
     TierSelo:
       type: string
       enum: [selo, regular, sem_verificacao]

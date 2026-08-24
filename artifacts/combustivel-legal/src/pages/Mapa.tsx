@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocationContext } from '@/contexts/LocationContext';
 import { useListarPostos, useBuscarEndereco, getBuscarEnderecoQueryKey, getListarPostosQueryKey } from '@workspace/api-client-react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
@@ -7,10 +7,11 @@ import { PostoFicha } from '@/components/PostoFicha';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, MapPin, CheckCircle2, ShieldCheck, ChevronRight, SlidersHorizontal, Navigation2 } from 'lucide-react';
+import { Search, MapPin, ShieldCheck, Navigation2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useRequireAuth } from '@/contexts/RequireAuthContext';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
 // --- Custom Icons ---
 const userIconHtml = `<div style="width: 24px; height: 24px; background: rgba(14,42,71,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;"><div style="width: 12px; height: 12px; background: #0E2A47; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div></div>`;
@@ -79,6 +80,8 @@ export default function Mapa() {
   
   const [addressSearch, setAddressSearch] = useState('');
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
+  const debouncedAddressSearch = useDebouncedValue(addressSearch.trim());
+  const isAddressQueryCurrent = debouncedAddressSearch === addressSearch.trim();
 
   useEffect(() => {
     const onboarded = localStorage.getItem('cl_onboarded');
@@ -86,7 +89,10 @@ export default function Mapa() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cl_last_map', JSON.stringify({ searchCenter, mapCenter, raio, somenteSelo }));
+    const saveMap = window.setTimeout(() => {
+      localStorage.setItem('cl_last_map', JSON.stringify({ searchCenter, mapCenter, raio, somenteSelo }));
+    }, 250);
+    return () => window.clearTimeout(saveMap);
   }, [searchCenter, mapCenter, raio, somenteSelo]);
 
   const finishOnboarding = () => {
@@ -94,14 +100,40 @@ export default function Mapa() {
     setShowOnboarding(false);
   };
 
-  const { data: postos = [] } = useListarPostos(
+  const {
+    data: postos = [],
+    isError: isPostosError,
+    isPending: isPostosLoading,
+    refetch: refetchPostos,
+  } = useListarPostos(
     { lat: searchCenter.lat, lng: searchCenter.lng, raio_km: raio, somente_selo: somenteSelo, q },
-    { query: { queryKey: getListarPostosQueryKey({ lat: searchCenter.lat, lng: searchCenter.lng, raio_km: raio, somente_selo: somenteSelo, q }) } }
+    {
+      query: {
+        queryKey: getListarPostosQueryKey({
+          lat: searchCenter.lat,
+          lng: searchCenter.lng,
+          raio_km: raio,
+          somente_selo: somenteSelo,
+          q,
+        }),
+        // Sem isso, o React Query pausa offline e deixa a interface em
+        // "carregando" para sempre, sem dar ao usuário como tentar novamente.
+        networkMode: 'always',
+        // O botão "Tentar novamente" é a recuperação explícita desta tela.
+        // Não mantenha o usuário aguardando retries silenciosos da biblioteca.
+        retry: false,
+      },
+    },
   );
 
   const { data: addresses = [] } = useBuscarEndereco(
-    { q: addressSearch },
-    { query: { enabled: addressSearch.length >= 3, queryKey: getBuscarEnderecoQueryKey({ q: addressSearch }) } }
+    { q: debouncedAddressSearch },
+    {
+      query: {
+        enabled: debouncedAddressSearch.length >= 3,
+        queryKey: getBuscarEnderecoQueryKey({ q: debouncedAddressSearch }),
+      },
+    }
   );
 
   const handleSearchArea = () => {
@@ -109,10 +141,20 @@ export default function Mapa() {
     setIsPanning(false);
   };
 
-  const handleAddressSelect = (lat: number, lng: number) => {
+  const uniqueAddresses = useMemo(() => {
+    const seen = new Set<string>();
+    return addresses.filter((address) => {
+      const key = `${address.label.trim().toLocaleLowerCase('pt-BR')}\u0000${address.lat}\u0000${address.lng}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [addresses]);
+
+  const handleAddressSelect = (lat: number, lng: number, label: string) => {
     setSearchCenter({ lat, lng });
     setMapCenter({ lat, lng });
-    setAddressSearch('');
+    setAddressSearch(label);
     setShowAddressDropdown(false);
   };
 
@@ -135,15 +177,22 @@ export default function Mapa() {
             placeholder="Buscar endereço ou posto" 
             className="pl-10 h-12 bg-white border-slate-200 shadow-sm rounded-xl text-md"
             onFocus={() => setShowAddressDropdown(true)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && isAddressQueryCurrent && uniqueAddresses[0]) {
+                event.preventDefault();
+                const address = uniqueAddresses[0];
+                handleAddressSelect(address.lat, address.lng, address.label);
+              }
+            }}
           />
           
-          {showAddressDropdown && addressSearch.length >= 3 && addresses.length > 0 && (
+          {showAddressDropdown && isAddressQueryCurrent && addressSearch.length >= 3 && uniqueAddresses.length > 0 && (
             <div className="absolute top-14 inset-x-0 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-[500]">
-              {addresses.map((addr, i) => (
+              {uniqueAddresses.map((addr) => (
                 <button
-                  key={i}
+                  key={`${addr.label}-${addr.lat}-${addr.lng}`}
                   className="w-full text-left px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 flex items-center gap-3"
-                  onClick={() => handleAddressSelect(addr.lat, addr.lng)}
+                  onClick={() => handleAddressSelect(addr.lat, addr.lng, addr.label)}
                 >
                   <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
                   <span className="text-sm truncate text-slate-700">{addr.label}</span>
@@ -181,10 +230,12 @@ export default function Mapa() {
             ))}
           </div>
 
-          <div className="shrink-0 ml-auto bg-orange-50 border border-orange-100 text-orange-800 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-flame-gradient"></span>
-            {postosSelo} {postosSelo === 1 ? 'verificado' : 'verificados'}
-          </div>
+          {!isPostosError && !isPostosLoading && (
+            <div className="shrink-0 ml-auto bg-orange-50 border border-orange-100 text-orange-800 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-flame-gradient"></span>
+              {postosSelo} {postosSelo === 1 ? 'verificado' : 'verificados'}
+            </div>
+          )}
         </div>
       </div>
 
@@ -219,6 +270,36 @@ export default function Mapa() {
             />
           ))}
         </MapContainer>
+
+        {isPostosLoading && (
+          <div className="absolute inset-x-4 top-32 z-[400] rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              Carregando postos verificados…
+            </div>
+          </div>
+        )}
+
+        {isPostosError && (
+          <div className="absolute inset-x-4 top-32 z-[400] rounded-xl border border-red-100 bg-white/95 p-4 shadow-sm backdrop-blur">
+            <div className="flex gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-800">Não conseguimos carregar os postos agora</p>
+                <Button variant="outline" size="sm" className="mt-3 h-8" onClick={() => void refetchPostos()}>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                  Tentar novamente
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isPostosLoading && !isPostosError && postos.length === 0 && (
+          <div className="absolute inset-x-4 top-32 z-[400] rounded-xl border border-slate-200 bg-white/95 px-4 py-3 text-center text-sm font-medium text-slate-600 shadow-sm backdrop-blur">
+            Nenhum posto verificado neste raio — amplie a busca.
+          </div>
+        )}
 
         {isPanning && (
           <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+70px)] left-1/2 -translate-x-1/2 z-[400]">

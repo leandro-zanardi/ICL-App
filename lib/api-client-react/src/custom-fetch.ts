@@ -134,41 +134,14 @@ function looksLikeJson(text: string): boolean {
   return trimmed.startsWith("{") || trimmed.startsWith("[");
 }
 
-function getStringField(value: unknown, key: string): string | undefined {
-  if (!value || typeof value !== "object") return undefined;
-
-  const candidate = (value as Record<string, unknown>)[key];
-  if (typeof candidate !== "string") return undefined;
-
-  const trimmed = candidate.trim();
-  return trimmed === "" ? undefined : trimmed;
-}
-
-function truncate(text: string, maxLength = 300): string {
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
-}
-
 function buildErrorMessage(response: Response, data: unknown): string {
-  const prefix = `HTTP ${response.status} ${response.statusText}`;
-
-  if (typeof data === "string") {
-    const text = data.trim();
-    return text ? `${prefix}: ${truncate(text)}` : prefix;
-  }
-
-  const title = getStringField(data, "title");
-  const detail = getStringField(data, "detail");
-  const message =
-    getStringField(data, "message") ??
-    getStringField(data, "error_description") ??
-    getStringField(data, "error");
-
-  if (title && detail) return `${prefix}: ${title} — ${detail}`;
-  if (detail) return `${prefix}: ${detail}`;
-  if (message) return `${prefix}: ${message}`;
-  if (title) return `${prefix}: ${title}`;
-
-  return prefix;
+  // Nunca exponha corpo técnico (HTML, JSON cru ou mensagens de infraestrutura)
+  // nos toasts e telas. O payload continua disponível em ApiError.data para
+  // tratamento programático quando necessário.
+  void data;
+  return response.status >= 500
+    ? "Nosso sistema está instável, tente em instantes."
+    : "Confira os dados informados e tente novamente.";
 }
 
 export class ApiError<T = unknown> extends Error {
@@ -229,6 +202,17 @@ export class ResponseParseError extends Error {
     this.method = requestInfo.method;
     this.url = response.url || requestInfo.url;
     this.rawBody = rawBody;
+    this.cause = cause;
+  }
+}
+
+export class NetworkRequestError extends Error {
+  readonly name = "NetworkRequestError";
+  readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super("Não foi possível conectar agora. Tente novamente em instantes.");
+    Object.setPrototypeOf(this, new.target.prototype);
     this.cause = cause;
   }
 }
@@ -377,7 +361,12 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, method, headers });
+  } catch (error) {
+    throw new NetworkRequestError(error);
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

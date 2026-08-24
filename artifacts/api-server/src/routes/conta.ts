@@ -25,7 +25,7 @@ router.post("/conta/verificar", async (req, res) => {
   if (!body) return;
 
   if (body.codigo !== CODIGO_DEMO) {
-    res.status(401).json({ error: "Código inválido. No modo demonstração, use 1234." });
+    res.status(401).json({ erro: "Código inválido. No modo demonstração, use 1234." });
     return;
   }
 

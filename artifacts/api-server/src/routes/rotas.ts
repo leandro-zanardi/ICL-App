@@ -36,11 +36,11 @@ router.post("/rotas", async (req, res) => {
   ]);
 
   if (!origem) {
-    res.status(400).json({ error: "Não encontramos o endereço de origem informado." });
+    res.status(400).json({ erro: "Não encontramos o endereço de origem informado." });
     return;
   }
   if (!destino) {
-    res.status(400).json({ error: "Não encontramos o endereço de destino informado." });
+    res.status(400).json({ erro: "Não encontramos o endereço de destino informado." });
     return;
   }
 

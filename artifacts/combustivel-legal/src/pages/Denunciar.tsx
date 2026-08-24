@@ -10,6 +10,7 @@ import { useDenunciaQueue } from '@/contexts/DenunciaQueueContext';
 import { AlertTriangle, Droplet, Hash, Copy, CheckCircle2, MapPin, Camera, X, WifiOff, RefreshCw, Clock3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
 export default function DenunciarPage() {
   const { activePosition } = useLocationContext();
@@ -24,12 +25,24 @@ export default function DenunciarPage() {
   const [selectedPostoId, setSelectedPostoId] = useState<string | null>(null);
   const [fotoNome, setFotoNome] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const debouncedPostoSearch = useDebouncedValue(postoSearch.trim());
+  const isPostoQueryCurrent = debouncedPostoSearch === postoSearch.trim();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: postosNearby = [] } = useListarPostos(
-    { lat: activePosition.lat, lng: activePosition.lng, raio_km: 5, q: postoSearch },
-    { query: { enabled: true, queryKey: getListarPostosQueryKey({ lat: activePosition.lat, lng: activePosition.lng, raio_km: 5, q: postoSearch }) } } // Fetch nearby, refine with q if typed
+    { lat: activePosition.lat, lng: activePosition.lng, raio_km: 5, q: debouncedPostoSearch },
+    {
+      query: {
+        enabled: debouncedPostoSearch.length >= 2,
+        queryKey: getListarPostosQueryKey({
+          lat: activePosition.lat,
+          lng: activePosition.lng,
+          raio_km: 5,
+          q: debouncedPostoSearch,
+        }),
+      },
+    },
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -245,7 +258,7 @@ export default function DenunciarPage() {
                   placeholder="Nome do posto ou endereço"
                   className="pl-10 h-12 bg-white"
                 />
-                {postoSearch.length >= 2 && postosNearby.length > 0 && (
+                {isPostoQueryCurrent && postoSearch.length >= 2 && postosNearby.length > 0 && (
                   <div className="absolute top-14 inset-x-0 bg-white border border-slate-100 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
                     {postosNearby.map(posto => (
                       <div 

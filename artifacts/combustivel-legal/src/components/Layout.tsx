@@ -50,7 +50,6 @@ export function ConsumerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-[100dvh] w-full bg-slate-100 md:bg-slate-200 flex items-center justify-center overflow-hidden">
       <DemoBar />
-      <InstallPrompt />
       <div className="w-full h-[100dvh] md:h-[844px] md:w-[390px] md:rounded-[2.5rem] bg-background md:shadow-2xl relative overflow-hidden flex flex-col md:border-[8px] md:border-slate-800">
         {/* Notch simulation for desktop view */}
         <div className="hidden md:block absolute top-0 inset-x-0 h-6 z-50 pointer-events-none">
@@ -61,6 +60,7 @@ export function ConsumerLayout({ children }: { children: ReactNode }) {
           {children}
         </div>
         
+        <InstallPrompt />
         <BottomNav />
       </div>
     </div>

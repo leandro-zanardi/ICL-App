@@ -21,13 +21,13 @@ router.post("/checkins", requireAuth, async (req, res) => {
   const [posto] = await db.select().from(postos).where(eq(postos.id, body.posto_id)).limit(1);
 
   if (!posto) {
-    res.status(404).json({ error: "Posto não encontrado." });
+    res.status(404).json({ erro: "Posto não encontrado." });
     return;
   }
 
   if (posto.tier !== "selo") {
     res.status(409).json({
-      error: "O check-in está disponível apenas em postos com o Selo Combustível Legal.",
+      erro: "O check-in está disponível apenas em postos com o Selo Combustível Legal.",
     });
     return;
   }
@@ -48,7 +48,7 @@ router.post("/checkins", requireAuth, async (req, res) => {
 
   if (recente) {
     res.status(409).json({
-      error: `Você já fez check-in neste posto nas últimas ${COOLDOWN_HORAS} horas. Volte mais tarde.`,
+      erro: `Você já fez check-in neste posto nas últimas ${COOLDOWN_HORAS} horas. Volte mais tarde.`,
     });
     return;
   }

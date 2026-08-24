@@ -34,14 +34,14 @@ export async function requireAuth(
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
 
   if (!token || !UUID_RE.test(token)) {
-    res.status(401).json({ error: "Entre com seu celular para continuar." });
+    res.status(401).json({ erro: "Entre com seu celular para continuar." });
     return;
   }
 
   const [usuario] = await db.select().from(usuarios).where(eq(usuarios.id, token)).limit(1);
 
   if (!usuario) {
-    res.status(401).json({ error: "Sessão expirada. Entre novamente." });
+    res.status(401).json({ erro: "Sessão expirada. Entre novamente." });
     return;
   }
 

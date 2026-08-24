@@ -1,7 +1,8 @@
-const VERSION = 'combustivel-legal-v2';
+const VERSION = 'combustivel-legal-v3';
 const APP_CACHE = `${VERSION}-app`;
 const MAP_CACHE = `${VERSION}-map`;
 const API_CACHE = `${VERSION}-api`;
+const NETWORK_TIMEOUT_MS = 8_000;
 const APP_SHELL = [
   './',
   './index.html',
@@ -44,6 +45,23 @@ function isPublicApiGet(request, url) {
   return url.pathname === '/api/postos' || url.pathname === '/api/geo/buscar';
 }
 
+function fetchWithTimeout(request, timeoutMs = NETWORK_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (request.signal?.aborted) {
+    controller.abort();
+  } else {
+    request.signal?.addEventListener('abort', abortFromCaller, { once: true });
+  }
+
+  return fetch(request, { signal: controller.signal }).finally(() => {
+    clearTimeout(timer);
+    request.signal?.removeEventListener('abort', abortFromCaller);
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
@@ -52,7 +70,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.open(MAP_CACHE).then(async (cache) => {
         const cached = await cache.match(request);
-        const network = fetch(request).then((response) => {
+        const network = fetchWithTimeout(request).then((response) => {
           if (response.ok) cache.put(request, response.clone());
           return response;
         }).catch(() => cached);
@@ -66,7 +84,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.open(API_CACHE).then(async (cache) => {
         const cached = await cache.match(request);
-        const network = fetch(request).then((response) => {
+        const network = fetchWithTimeout(request).then((response) => {
           if (response.ok) cache.put(request, response.clone());
           return response;
         }).catch(() => cached);
@@ -84,7 +102,7 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method === 'GET' && request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).then((response) => {
+      fetchWithTimeout(request).then((response) => {
         const copy = response.clone();
         caches.open(APP_CACHE).then((cache) => cache.put(request, copy));
         return response;
@@ -95,7 +113,7 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method === 'GET' && url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+      caches.match(request).then((cached) => cached || fetchWithTimeout(request).then((response) => {
         if (response.ok) {
           const copy = response.clone();
           caches.open(APP_CACHE).then((cache) => cache.put(request, copy));

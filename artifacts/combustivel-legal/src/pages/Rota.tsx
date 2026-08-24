@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocationContext } from '@/contexts/LocationContext';
 import { useBuscarEndereco, useCalcularRota, getBuscarEnderecoQueryKey } from '@workspace/api-client-react';
 import { Header } from '@/components/Header';
@@ -9,6 +9,7 @@ import L from 'leaflet';
 import { Search, MapPin, Route, Navigation, Award, Loader2, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PostoFicha } from '@/components/PostoFicha';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
 const seloIconHtml = `<svg width="24" height="32" viewBox="0 0 32 42" fill="none" xmlns="http://www.svg.org/2000/svg">
   <path d="M16 0C7.16344 0 0 7.16344 0 16C0 26.6667 16 42 16 42C16 42 32 26.6667 32 16C32 7.16344 24.8366 0 16 0Z" fill="#0E2A47"/>
@@ -35,11 +36,33 @@ export default function RotaPage() {
   const [destinoPos, setDestinoPos] = useState<{lat: number, lng: number, label: string} | null>(null);
   const [showDestinoDropdown, setShowDestinoDropdown] = useState(false);
   const [selectedPostoId, setSelectedPostoId] = useState<string | null>(null);
+  const debouncedDestinoQuery = useDebouncedValue(destinoQuery.trim());
+  const isDestinoQueryCurrent = debouncedDestinoQuery === destinoQuery.trim();
 
   const { data: addresses = [] } = useBuscarEndereco(
-    { q: destinoQuery },
-    { query: { enabled: destinoQuery.length >= 3, queryKey: getBuscarEnderecoQueryKey({ q: destinoQuery }) } }
+    { q: debouncedDestinoQuery },
+    {
+      query: {
+        enabled: debouncedDestinoQuery.length >= 3,
+        queryKey: getBuscarEnderecoQueryKey({ q: debouncedDestinoQuery }),
+      },
+    }
   );
+  const uniqueAddresses = useMemo(() => {
+    const seen = new Set<string>();
+    return addresses.filter((address) => {
+      const key = `${address.label.trim().toLocaleLowerCase('pt-BR')}\u0000${address.lat}\u0000${address.lng}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [addresses]);
+
+  const selectDestino = (address: { lat: number; lng: number; label: string }) => {
+    setDestinoPos(address);
+    setDestinoQuery(address.label);
+    setShowDestinoDropdown(false);
+  };
 
   const calcularRota = useCalcularRota();
 
@@ -84,20 +107,22 @@ export default function RotaPage() {
                     setDestinoPos(null);
                   }}
                   onFocus={() => setShowDestinoDropdown(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && isDestinoQueryCurrent && uniqueAddresses[0]) {
+                      event.preventDefault();
+                      selectDestino(uniqueAddresses[0]);
+                    }
+                  }}
                   placeholder="Para onde você vai?"
                   className="h-10 border-slate-200"
                 />
-                {showDestinoDropdown && destinoQuery.length >= 3 && addresses.length > 0 && (
+                {showDestinoDropdown && isDestinoQueryCurrent && destinoQuery.length >= 3 && uniqueAddresses.length > 0 && (
                   <div className="absolute top-12 inset-x-0 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-[500]">
-                    {addresses.map((addr, i) => (
+                    {uniqueAddresses.map((addr) => (
                       <button
-                        key={i}
+                        key={`${addr.label}-${addr.lat}-${addr.lng}`}
                         className="w-full text-left px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 flex items-center gap-3"
-                        onClick={() => {
-                          setDestinoPos(addr);
-                          setDestinoQuery(addr.label);
-                          setShowDestinoDropdown(false);
-                        }}
+                        onClick={() => selectDestino(addr)}
                       >
                         <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
                         <span className="text-sm truncate text-slate-700">{addr.label}</span>

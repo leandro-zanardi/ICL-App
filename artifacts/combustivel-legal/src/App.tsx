@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -12,12 +12,12 @@ import { RequireAuthProvider } from '@/contexts/RequireAuthContext';
 import { DenunciaQueueProvider } from '@/contexts/DenunciaQueueContext';
 import { ConsumerLayout } from '@/components/Layout';
 
-import Mapa from '@/pages/Mapa';
-import Rota from '@/pages/Rota';
-import Beneficios from '@/pages/Beneficios';
-import Denunciar from '@/pages/Denunciar';
-import Apresentacao from '@/pages/Apresentacao';
-import AdminImportar from '@/pages/AdminImportar';
+const Mapa = lazy(() => import('@/pages/Mapa'));
+const Rota = lazy(() => import('@/pages/Rota'));
+const Beneficios = lazy(() => import('@/pages/Beneficios'));
+const Denunciar = lazy(() => import('@/pages/Denunciar'));
+const Apresentacao = lazy(() => import('@/pages/Apresentacao'));
+const AdminImportar = lazy(() => import('@/pages/AdminImportar'));
 
 const queryClient = new QueryClient();
 
@@ -25,15 +25,23 @@ function Router() {
   return (
     <RoutedErrorBoundary>
       <ConsumerLayout>
-        <Switch>
-          <Route path="/" component={Mapa} />
-          <Route path="/rota" component={Rota} />
-          <Route path="/beneficios" component={Beneficios} />
-          <Route path="/denunciar" component={Denunciar} />
-          <Route path="/apresentacao" component={Apresentacao} />
-          <Route path="/admin/importar" component={AdminImportar} />
-          <Route component={NotFound} />
-        </Switch>
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center bg-slate-50" role="status">
+              <span className="text-sm font-medium text-slate-500">Carregando…</span>
+            </div>
+          }
+        >
+          <Switch>
+            <Route path="/" component={Mapa} />
+            <Route path="/rota" component={Rota} />
+            <Route path="/beneficios" component={Beneficios} />
+            <Route path="/denunciar" component={Denunciar} />
+            <Route path="/apresentacao" component={Apresentacao} />
+            <Route path="/admin/importar" component={AdminImportar} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
       </ConsumerLayout>
     </RoutedErrorBoundary>
   );

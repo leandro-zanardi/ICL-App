@@ -2,3 +2,4 @@
 - [Drizzle push com pgSchema](drizzle-schema-filter.md) — drizzle-kit push ignora schemas não-public silenciosamente ("No changes detected") sem schemaFilter na config.
 - [Primeira publicação e banco de prod](replit-first-publish-db.md) — banco de produção só nasce após publish OK; boot que espera o banco antes do listen trava a publicação (porta nunca abre).
 - [Playwright no ambiente Replit](playwright-system-deps.md) — Chromium precisa de bibliotecas gráficas/áudio declaradas no ambiente para o E2E iniciar.
+- [Recuperação de rede no mapa PWA](pwa-map-network-recovery.md) — worker e consultas do mapa precisam falhar em prazo finito para expor recuperação, nunca ficarem em espera silenciosa.

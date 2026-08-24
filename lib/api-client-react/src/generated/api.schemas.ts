@@ -10,7 +10,7 @@ export interface HealthStatus {
 }
 
 export interface Erro {
-  error: string;
+  erro: string;
 }
 
 /**
