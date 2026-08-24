@@ -14,6 +14,7 @@ import {
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { calcularNotaAnp } from "./score";
 import { logger } from "./logger";
+import { extrairPinosAnp, type PinAnp } from "./anp-map";
 
 export const MUNICIPIOS_ANP = ["CAMPINAS - SP", "SAO PAULO - SP"] as const;
 export type MunicipioAnp = (typeof MUNICIPIOS_ANP)[number];
@@ -27,17 +28,6 @@ const prioridadesCnpj = new Set<string>();
 let proximaPaginaEm = 0;
 let filaDeRede: Promise<void> = Promise.resolve();
 let scheduler: NodeJS.Timeout | undefined;
-
-type PinAnp = {
-  cnpj: string;
-  lat: number;
-  lng: number;
-  nomeFantasia?: string;
-  razaoSocial?: string;
-  bandeira?: string;
-  endereco?: string;
-  notaAnp?: number;
-};
 
 type Contadores = {
   postosLidos: number;
@@ -88,55 +78,6 @@ function numero(valor: unknown): number | null {
   return Number.isFinite(resultado) ? resultado : null;
 }
 
-function texto(objeto: Record<string, unknown>, chaves: string[]): string | undefined {
-  for (const chave of chaves) {
-    const valor = objeto[chave] ?? objeto[chave.toUpperCase()] ?? objeto[chave.toLowerCase()];
-    if (typeof valor === "string" && valor.trim()) return valor.trim();
-    if (typeof valor === "number") return String(valor);
-  }
-  return undefined;
-}
-
-function valorNumero(objeto: Record<string, unknown>, chaves: string[]): number | null {
-  for (const chave of chaves) {
-    const valor = objeto[chave] ?? objeto[chave.toUpperCase()] ?? objeto[chave.toLowerCase()];
-    const resultado = numero(valor);
-    if (resultado != null) return resultado;
-  }
-  return null;
-}
-
-function extrairPinos(payload: unknown): PinAnp[] {
-  const encontrados = new Map<string, PinAnp>();
-  const visitar = (valor: unknown): void => {
-    if (Array.isArray(valor)) {
-      valor.forEach(visitar);
-      return;
-    }
-    if (!valor || typeof valor !== "object") return;
-    const objeto = valor as Record<string, unknown>;
-    const cnpj = (texto(objeto, ["cnpj", "p_cnpj", "cnpj_filtro"]) ?? "").replace(/\D/g, "");
-    const lat = valorNumero(objeto, ["lat", "latitude", "latitute"]);
-    const lng = valorNumero(objeto, ["lng", "longitude", "long"]);
-
-    if (cnpj.length === 14 && lat != null && lng != null) {
-      encontrados.set(cnpj, {
-        cnpj,
-        lat,
-        lng,
-        nomeFantasia: texto(objeto, ["nome_fantasia", "nomefantasia", "fantasia", "nome"]),
-        razaoSocial: texto(objeto, ["razao_social", "razaosocial"]),
-        bandeira: texto(objeto, ["bandeira", "distribuidora"]),
-        endereco: texto(objeto, ["endereco", "logradouro"]),
-        notaAnp: valorNumero(objeto, ["nota", "nota_anp"]) ?? undefined,
-      });
-    }
-    Object.values(objeto).forEach(visitar);
-  };
-  visitar(payload);
-  return [...encontrados.values()];
-}
-
 function jsonSeguro(conteudo: string): unknown {
   try {
     return JSON.parse(conteudo);
@@ -185,18 +126,22 @@ async function atualizarExecucao(
 async function upsertPin(pino: PinAnp, municipio: string): Promise<{ id: string; novo: boolean }> {
   return db.transaction(async (tx) => {
     const [existente] = await tx
-      .select({ id: postos.id })
+      .select({ id: postos.id, nomeFantasia: postos.nomeFantasia })
       .from(postos)
       .where(sql`regexp_replace(${postos.cnpj}, '\\D', '', 'g') = ${pino.cnpj}`)
       .limit(1);
 
-    if (!pino.razaoSocial || !pino.nomeFantasia || !pino.bandeira || !pino.endereco) {
+    if (!pino.razaoSocial || !pino.bandeira || !pino.endereco) {
       throw new Error(`${pino.cnpj}: o mapa ANP não forneceu todos os campos cadastrais obrigatórios.`);
     }
+    // A ficha pública do app ANP expõe razão social, mas não necessariamente
+    // nome fantasia. A razão social é oficial e vira apenas o nome de
+    // exibição enquanto a fonte não fornecer uma fantasia distinta.
+    const nomeExibicao = pino.nomeFantasia ?? existente?.nomeFantasia ?? pino.razaoSocial;
     const dados = {
       cnpj: pino.cnpj,
       razaoSocial: pino.razaoSocial,
-      nomeFantasia: pino.nomeFantasia,
+      nomeFantasia: nomeExibicao,
       bandeira: pino.bandeira,
       endereco: pino.endereco,
       municipio,
@@ -217,6 +162,7 @@ async function upsertPin(pino: PinAnp, municipio: string): Promise<{ id: string;
       .values({
         ...dados,
         statusRecebimento: "PINO ANP",
+        situacaoAnp: "NÃO INFORMADA PELA ANP",
         sincronizadoEm: new Date(),
       })
       .returning({ id: postos.id });
@@ -235,7 +181,7 @@ async function coletarPinosDoMunicipio(page: Page, municipio: MunicipioAnp): Pro
     try {
       const corpo = await response.text();
       const conteudo = jsonSeguro(corpo);
-      if (extrairPinos(conteudo).length > 0) payloads.push({ url, conteudo });
+      if (extrairPinosAnp(conteudo).length > 0) payloads.push({ url, conteudo });
     } catch {
       // Uma resposta binária ou bloqueada não impede a página de continuar.
     }
@@ -252,8 +198,15 @@ async function coletarPinosDoMunicipio(page: Page, municipio: MunicipioAnp): Pro
     await page.getByText("Visualizar Postos da Cidade", { exact: true }).click({ timeout: 20_000 });
     await page.locator("#P1_CIDADE").waitFor({ state: "attached", timeout: 20_000 });
     // O APEX mantém estado próprio para o campo visual. O valor interno é
-    // obtido dinamicamente a partir do rótulo oficial, sem ser codificado, e o
-    // evento de mudança é emitido para que a tela prepare o botão do mapa.
+    // obtido dinamicamente a partir do rótulo oficial, sem ser codificado.
+    // A mudança aciona uma ação AJAX que preenche município e UF no servidor;
+    // o submit para o mapa só pode acontecer depois dessa resposta.
+    const respostaDaCidade = page.waitForResponse(
+      (response) =>
+        response.url().includes("wwv_flow.ajax") &&
+        (response.request().postData() ?? "").includes("P1_CIDADE"),
+      { timeout: 20_000 },
+    );
     await page.locator("#P1_CIDADE").evaluate((elemento, rotulo) => {
       const select = elemento as any;
       const opcao = Array.from(select.options as any[]).find((item: any) => item.text.trim() === rotulo);
@@ -262,14 +215,34 @@ async function coletarPinosDoMunicipio(page: Page, municipio: MunicipioAnp): Pro
       if (!apex?.item) throw new Error("Componente APEX não disponível para seleção do município.");
       apex.item(select.id).setValue(opcao.value, opcao.text, false);
     }, municipio);
+    const respostaCidade = await respostaDaCidade;
+    if (!respostaCidade.ok()) {
+      throw new Error(`A ANP não confirmou o município ${municipio} antes da abertura do mapa.`);
+    }
+    let municipioConfirmado = false;
+    for (let tentativa = 0; tentativa < 40; tentativa++) {
+      const [municipioSelecionado, ufSelecionada] = await Promise.all([
+        page.locator("#P1_MUNICIPIO").inputValue(),
+        page.locator("#P1_UF").inputValue(),
+      ]);
+      if (municipioSelecionado && ufSelecionada) {
+        municipioConfirmado = true;
+        break;
+      }
+      await aguardar(500);
+    }
+    if (!municipioConfirmado) {
+      throw new Error(`A ANP não preencheu município e UF para ${municipio}.`);
+    }
     await page.getByRole("button", { name: "Mostrar no Mapa os Postos da cidade" }).waitFor({ state: "visible", timeout: 20_000 });
     await page.getByRole("button", { name: "Mostrar no Mapa os Postos da cidade" }).click();
+    await page.waitForURL(/postos-mapa/, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.waitForTimeout(4_000);
 
     for (const payload of payloads) {
       await registrarSnapshot(null, "postos-mapa", payload.url, payload.conteudo);
     }
-    const pinos = payloads.flatMap((payload) => extrairPinos(payload.conteudo));
+    const pinos = payloads.flatMap((payload) => extrairPinosAnp(payload.conteudo));
     const unicos = new Map(pinos.map((pino) => [pino.cnpj, pino]));
     if (unicos.size === 0) {
       throw new Error(`A resposta do mapa de ${municipio} não trouxe pinos reconhecíveis.`);
@@ -308,6 +281,15 @@ function dataAnp(valor: string | undefined): string | null {
   if (iso) return iso[0];
   const br = valor.match(/(\d{2})\/(\d{2})\/(\d{4})/);
   return br ? `${br[3]}-${br[2]}-${br[1]}` : null;
+}
+
+function valorAposRotulo(textoCompleto: string, rotulo: string): string | undefined {
+  const linhas = textoCompleto
+    .split(/\r?\n/)
+    .map((linha) => linha.trim())
+    .filter(Boolean);
+  const indice = linhas.findIndex((linha) => normalizar(linha) === normalizar(rotulo));
+  return indice >= 0 ? linhas[indice + 1] : undefined;
 }
 
 async function normalizarDetalhe(
@@ -406,7 +388,7 @@ async function abrirPaginaPorRotulo(page: Page, rotulo: RegExp): Promise<boolean
 async function detalharPosto(
   page: Page,
   posto: { id: string; cnpj: string; notaAnpColetada: number | null; situacaoAnp: string },
-): Promise<{ paginas: number; notaCalculada: number }> {
+): Promise<{ paginas: number; notaCalculada: number | null }> {
   // A busca e as navegações são feitas por controles visíveis do APEX. Não são
   // montadas URLs com parâmetros de sessão, CNPJ ou checksums.
   await respeitarRitmo();
@@ -415,14 +397,36 @@ async function detalharPosto(
     throw new Error("A ANP solicitou verificação de segurança durante o detalhamento.");
   }
   await page.getByText("Buscar pelo CNPJ", { exact: true }).click({ timeout: 20_000 });
-  const entrada = page.locator("input").first();
+    const entrada = page.locator("#P1_CNPJ");
+    await entrada.waitFor({ state: "visible", timeout: 20_000 });
   await entrada.fill(posto.cnpj);
-  const enviou = await abrirPaginaPorRotulo(page, /buscar|consultar/i);
-  if (!enviou) throw new Error(`Não foi possível acionar a busca ANP para ${posto.cnpj}.`);
+    // O APEX exibe o botão de busca em um handler de `keyup`, não apenas com
+    // a alteração programática do valor do campo.
+    await entrada.press("End");
+    const visualizarPosto = page.getByRole("button", { name: "Visualizar Posto" });
+    await visualizarPosto.waitFor({ state: "visible", timeout: 20_000 });
+    await visualizarPosto.click({ noWaitAfter: true });
+    await page.waitForURL(/posto-geral/, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
-  let paginas = 0;
+  // A busca já abre a página "Dados do Posto". Ela não é um botão de
+  // navegação, portanto precisa ser registrada antes de seguir pelos controles
+  // visíveis para as demais seções.
+  let paginas = 1;
+  const textoGeral = await page.locator("body").innerText();
+  const tabelasGerais = await extrairTabelas(page);
+  const situacaoOficial = valorAposRotulo(textoGeral, "Situação");
+  await registrarSnapshot(posto.id, "posto-geral", page.url(), {
+    texto: textoGeral.slice(0, 120_000),
+    tabelas: tabelasGerais,
+  });
+  if (situacaoOficial) {
+    await db
+      .update(postos)
+      .set({ situacaoAnp: situacaoOficial, atualizadoEm: new Date() })
+      .where(eq(postos.id, posto.id));
+  }
+
   for (const item of [
-    { alias: "posto-geral", rotulo: /geral|dados gerais/i },
     { alias: "posto-detalhe", rotulo: /detalhe|cadastro/i },
     { alias: "fiscalizacoes", rotulo: /fiscaliza/i },
     { alias: "amostras", rotulo: /amostra|qualidade/i },
@@ -443,14 +447,17 @@ async function detalharPosto(
     db.select().from(amostrasPmqc).where(eq(amostrasPmqc.postoId, posto.id)),
     db.select().from(irregularidades).where(eq(irregularidades.postoId, posto.id)),
   ]);
-  const nota = calcularNotaAnp({
-    situacao: posto.situacaoAnp,
-    amostras: amostras.map((amostra) => ({ dataColeta: amostra.dataColeta, conforme: amostra.conforme })),
-    irregularidades: infracoes.map((infracao) => ({
-      dataFiscalizacao: infracao.dataFiscalizacao,
-      classificacao: infracao.classificacao,
-    })),
-  }).nota;
+  const nota =
+    (situacaoOficial ?? posto.situacaoAnp) === "NÃO INFORMADA PELA ANP"
+      ? null
+      : calcularNotaAnp({
+          situacao: situacaoOficial ?? posto.situacaoAnp,
+          amostras: amostras.map((amostra) => ({ dataColeta: amostra.dataColeta, conforme: amostra.conforme })),
+          irregularidades: infracoes.map((infracao) => ({
+            dataFiscalizacao: infracao.dataFiscalizacao,
+            classificacao: infracao.classificacao,
+          })),
+        }).nota;
   await db
     .update(postos)
     .set({
@@ -490,7 +497,9 @@ async function executarSincronizacao(id: string, municipios: MunicipioAnp[]): Pr
             break;
           } catch (erro) {
             falhasSeguidas++;
-            erros.push(`${municipio} (tentativa ${tentativa}): ${erroLegivel(erro)}`);
+            const mensagem = erroLegivel(erro);
+            erros.push(`${municipio} (tentativa ${tentativa}): ${mensagem}`);
+            if (/verificação de segurança|just a moment/i.test(mensagem)) throw erro;
             if (falhasSeguidas >= MAX_FALHAS_SEGUIDAS) throw new Error("Circuit breaker aberto após 5 falhas consecutivas.");
             await aguardar(2 ** tentativa * UM_SEGUNDO_MS);
           }
@@ -533,7 +542,11 @@ async function executarSincronizacao(id: string, municipios: MunicipioAnp[]): Pr
       try {
         const detalhe = await detalharPosto(page, posto);
         contadores.paginasColetadas += detalhe.paginas;
-        if (posto.notaAnpColetada != null && posto.notaAnpColetada !== detalhe.notaCalculada) {
+        if (
+          posto.notaAnpColetada != null &&
+          detalhe.notaCalculada != null &&
+          posto.notaAnpColetada !== detalhe.notaCalculada
+        ) {
           contadores.divergenciasNota++;
           erros.push(`${posto.cnpj}: nota ANP ${posto.notaAnpColetada} difere da nota calculada ${detalhe.notaCalculada}.`);
         }
@@ -541,7 +554,9 @@ async function executarSincronizacao(id: string, municipios: MunicipioAnp[]): Pr
         falhasSeguidas = 0;
       } catch (erro) {
         falhasSeguidas++;
-        erros.push(`${pino.cnpj}: ${erroLegivel(erro)}`);
+        const mensagem = erroLegivel(erro);
+        erros.push(`${pino.cnpj}: ${mensagem}`);
+        if (/verificação de segurança|just a moment/i.test(mensagem)) throw erro;
         if (falhasSeguidas >= MAX_FALHAS_SEGUIDAS) throw new Error("Circuit breaker aberto após 5 falhas consecutivas.");
         await aguardar(2 ** falhasSeguidas * UM_SEGUNDO_MS);
       }
