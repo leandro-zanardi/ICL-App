@@ -203,6 +203,31 @@ export const anpRawSnapshots = appSchema.table(
 );
 
 // ---------------------------------------------------------------------------
+// app.anp_sincronizacoes — auditoria e progresso dos jobs de coleta ANP
+// ---------------------------------------------------------------------------
+export const anpSincronizacoes = appSchema.table(
+  "anp_sincronizacoes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    municipios: jsonb("municipios").notNull(),
+    status: text("status").notNull().default("queued"),
+    postosLidos: integer("postos_lidos").notNull().default(0),
+    postosAtualizados: integer("postos_atualizados").notNull().default(0),
+    paginasColetadas: integer("paginas_coletadas").notNull().default(0),
+    divergenciasNota: integer("divergencias_nota").notNull().default(0),
+    erros: jsonb("erros").notNull().default([]),
+    iniciadoEm: timestamp("iniciado_em", { withTimezone: true }),
+    concluidoEm: timestamp("concluido_em", { withTimezone: true }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("anp_sincronizacoes_criado_idx").on(t.criadoEm),
+    index("anp_sincronizacoes_status_idx").on(t.status),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // app.classificacoes — histórico/snapshot dos critérios de cada classificação
 // ---------------------------------------------------------------------------
 export const classificacoes = appSchema.table(
@@ -383,6 +408,7 @@ export type AmostraPmqc = typeof amostrasPmqc.$inferSelect;
 export type EnsaioNaoConforme = typeof ensaiosNaoConformes.$inferSelect;
 export type OrigemCombustivel = typeof origemCombustivel.$inferSelect;
 export type AnpRawSnapshot = typeof anpRawSnapshots.$inferSelect;
+export type AnpSincronizacao = typeof anpSincronizacoes.$inferSelect;
 export type Classificacao = typeof classificacoes.$inferSelect;
 export type Usuario = typeof usuarios.$inferSelect;
 export type Carteira = typeof carteiras.$inferSelect;

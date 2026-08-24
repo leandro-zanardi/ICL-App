@@ -319,6 +319,49 @@ export interface ImportacaoRelatorio {
   erros: string[];
 }
 
+export type SincronizacaoAnpInputMunicipiosItem = typeof SincronizacaoAnpInputMunicipiosItem[keyof typeof SincronizacaoAnpInputMunicipiosItem];
+
+
+export const SincronizacaoAnpInputMunicipiosItem = {
+  'CAMPINAS_-_SP': 'CAMPINAS - SP',
+  'SAO_PAULO_-_SP': 'SAO PAULO - SP',
+} as const;
+
+export interface SincronizacaoAnpInput {
+  /**
+     * @minItems 1
+     * @maxItems 2
+     */
+  municipios?: SincronizacaoAnpInputMunicipiosItem[];
+}
+
+export type SincronizacaoAnpStatus = typeof SincronizacaoAnpStatus[keyof typeof SincronizacaoAnpStatus];
+
+
+export const SincronizacaoAnpStatus = {
+  queued: 'queued',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+  partial: 'partial',
+} as const;
+
+export interface SincronizacaoAnp {
+  id: string;
+  municipios: string[];
+  status: SincronizacaoAnpStatus;
+  postos_lidos: number;
+  postos_atualizados: number;
+  paginas_coletadas: number;
+  divergencias_nota: number;
+  erros: string[];
+  /** @nullable */
+  iniciado_em?: string | null;
+  /** @nullable */
+  concluido_em?: string | null;
+  criado_em: string;
+}
+
 export type ListarPostosParams = {
 lat: number;
 lng: number;

@@ -4,6 +4,7 @@ import { db, postos, checkins } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { haversineKm, geohash5 } from "../lib/geo";
 import { calcularScore, isRedeAssociada } from "../lib/score";
+import { priorizarDetalhamentoAnp } from "../lib/anp-sync";
 import { publicarEvento } from "../lib/sse";
 import { validar } from "../lib/validar";
 
@@ -80,6 +81,7 @@ router.get("/postos/:id", async (req, res) => {
     .where(eq(checkins.postoId, posto.id));
 
   const { criterios } = calcularScore(posto);
+  priorizarDetalhamentoAnp(posto.cnpj);
 
   publicarEvento({
     eventType: "visualizou_posto",

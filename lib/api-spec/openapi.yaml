@@ -407,6 +407,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erro"
+  /admin/sincronizar-anp:
+    post:
+      operationId: iniciarSincronizacaoAnp
+      tags: [admin]
+      summary: Inicia em segundo plano a sincronização de postos da ANP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SincronizacaoAnpInput"
+      responses:
+        "202":
+          description: Sincronização enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SincronizacaoAnp"
+  /admin/sincronizacoes:
+    get:
+      operationId: listarSincronizacoesAnp
+      tags: [admin]
+      summary: Lista as execuções recentes da sincronização ANP
+      responses:
+        "200":
+          description: Execuções recentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SincronizacaoAnp"
+  /admin/sincronizacoes/{id}:
+    get:
+      operationId: obterSincronizacaoAnp
+      tags: [admin]
+      summary: Consulta o progresso de uma sincronização ANP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Sincronização encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SincronizacaoAnp"
+        "404":
+          description: Sincronização não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
 components:
   securitySchemes:
     bearerAuth:
@@ -738,3 +793,36 @@ components:
         erros:
           type: array
           items: { type: string }
+    SincronizacaoAnpInput:
+      type: object
+      properties:
+        municipios:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            type: string
+            enum: [CAMPINAS - SP, SAO PAULO - SP]
+          default: [CAMPINAS - SP, SAO PAULO - SP]
+    SincronizacaoAnp:
+      type: object
+      required:
+        [id, municipios, status, postos_lidos, postos_atualizados, paginas_coletadas, divergencias_nota, erros, criado_em]
+      properties:
+        id: { type: string }
+        municipios:
+          type: array
+          items: { type: string }
+        status:
+          type: string
+          enum: [queued, running, completed, failed, partial]
+        postos_lidos: { type: integer }
+        postos_atualizados: { type: integer }
+        paginas_coletadas: { type: integer }
+        divergencias_nota: { type: integer }
+        erros:
+          type: array
+          items: { type: string }
+        iniciado_em: { type: ["string", "null"] }
+        concluido_em: { type: ["string", "null"] }
+        criado_em: { type: string }

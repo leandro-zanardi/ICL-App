@@ -369,3 +369,70 @@ export const ImportarCsvAnpResponse = zod.object({
 })
 
 
+/**
+ * @summary Inicia em segundo plano a sincronização de postos da ANP
+ */
+export const iniciarSincronizacaoAnpBodyMunicipiosMax = 2;
+
+
+
+export const IniciarSincronizacaoAnpBody = zod.object({
+  "municipios": zod.array(zod.enum(['CAMPINAS - SP', 'SAO PAULO - SP'])).min(1).max(iniciarSincronizacaoAnpBodyMunicipiosMax).default([`CAMPINAS - SP`, `SAO PAULO - SP`])
+})
+
+export const IniciarSincronizacaoAnpResponse = zod.object({
+  "id": zod.string(),
+  "municipios": zod.array(zod.string()),
+  "status": zod.enum(['queued', 'running', 'completed', 'failed', 'partial']),
+  "postos_lidos": zod.int(),
+  "postos_atualizados": zod.int(),
+  "paginas_coletadas": zod.int(),
+  "divergencias_nota": zod.int(),
+  "erros": zod.array(zod.string()),
+  "iniciado_em": zod.string().nullish(),
+  "concluido_em": zod.string().nullish(),
+  "criado_em": zod.string()
+})
+
+
+/**
+ * @summary Lista as execuções recentes da sincronização ANP
+ */
+export const ListarSincronizacoesAnpResponseItem = zod.object({
+  "id": zod.string(),
+  "municipios": zod.array(zod.string()),
+  "status": zod.enum(['queued', 'running', 'completed', 'failed', 'partial']),
+  "postos_lidos": zod.int(),
+  "postos_atualizados": zod.int(),
+  "paginas_coletadas": zod.int(),
+  "divergencias_nota": zod.int(),
+  "erros": zod.array(zod.string()),
+  "iniciado_em": zod.string().nullish(),
+  "concluido_em": zod.string().nullish(),
+  "criado_em": zod.string()
+})
+export const ListarSincronizacoesAnpResponse = zod.array(ListarSincronizacoesAnpResponseItem)
+
+
+/**
+ * @summary Consulta o progresso de uma sincronização ANP
+ */
+export const ObterSincronizacaoAnpParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ObterSincronizacaoAnpResponse = zod.object({
+  "id": zod.string(),
+  "municipios": zod.array(zod.string()),
+  "status": zod.enum(['queued', 'running', 'completed', 'failed', 'partial']),
+  "postos_lidos": zod.int(),
+  "postos_atualizados": zod.int(),
+  "paginas_coletadas": zod.int(),
+  "divergencias_nota": zod.int(),
+  "erros": zod.array(zod.string()),
+  "iniciado_em": zod.string().nullish(),
+  "concluido_em": zod.string().nullish(),
+  "criado_em": zod.string()
+})
+
+

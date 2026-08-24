@@ -46,7 +46,9 @@ import type {
   ResgateInput,
   Rota,
   RotaInput,
-  Sessao
+  Sessao,
+  SincronizacaoAnp,
+  SincronizacaoAnpInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1345,4 +1347,223 @@ export const useImportarCsvAnp = <TError = ErrorType<Erro>,
       > => {
       return useMutation(getImportarCsvAnpMutationOptions(options));
     }
+
+export const getIniciarSincronizacaoAnpUrl = () => {
+
+
+
+
+  return `/api/admin/sincronizar-anp`
+}
+
+/**
+ * @summary Inicia em segundo plano a sincronização de postos da ANP
+ */
+export const iniciarSincronizacaoAnp = async (sincronizacaoAnpInput: SincronizacaoAnpInput, options?: Parameters<typeof customFetch>[1]): Promise<SincronizacaoAnp> => {
+
+  return customFetch<SincronizacaoAnp>(getIniciarSincronizacaoAnpUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sincronizacaoAnpInput)
+  }
+);}
+
+
+
+
+
+export const getIniciarSincronizacaoAnpMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof iniciarSincronizacaoAnp>>, TError,{data: BodyType<SincronizacaoAnpInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof iniciarSincronizacaoAnp>>, TError,{data: BodyType<SincronizacaoAnpInput>}, TContext> => {
+
+const mutationKey = ['iniciarSincronizacaoAnp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof iniciarSincronizacaoAnp>>, {data: BodyType<SincronizacaoAnpInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  iniciarSincronizacaoAnp(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IniciarSincronizacaoAnpMutationResult = NonNullable<Awaited<ReturnType<typeof iniciarSincronizacaoAnp>>>
+    export type IniciarSincronizacaoAnpMutationBody = BodyType<SincronizacaoAnpInput>
+    export type IniciarSincronizacaoAnpMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Inicia em segundo plano a sincronização de postos da ANP
+ */
+export const useIniciarSincronizacaoAnp = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof iniciarSincronizacaoAnp>>, TError,{data: BodyType<SincronizacaoAnpInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof iniciarSincronizacaoAnp>>,
+        TError,
+        {data: BodyType<SincronizacaoAnpInput>},
+        TContext
+      > => {
+      return useMutation(getIniciarSincronizacaoAnpMutationOptions(options));
+    }
+
+export const getListarSincronizacoesAnpUrl = () => {
+
+
+
+
+  return `/api/admin/sincronizacoes`
+}
+
+/**
+ * @summary Lista as execuções recentes da sincronização ANP
+ */
+export const listarSincronizacoesAnp = async ( options?: Parameters<typeof customFetch>[1]): Promise<SincronizacaoAnp[]> => {
+
+  return customFetch<SincronizacaoAnp[]>(getListarSincronizacoesAnpUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListarSincronizacoesAnpQueryKey = () => {
+    return [
+    `/api/admin/sincronizacoes`
+    ] as const;
+    }
+
+
+export const getListarSincronizacoesAnpQueryOptions = <TData = Awaited<ReturnType<typeof listarSincronizacoesAnp>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listarSincronizacoesAnp>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListarSincronizacoesAnpQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listarSincronizacoesAnp>>> = ({ signal }) => listarSincronizacoesAnp({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listarSincronizacoesAnp>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListarSincronizacoesAnpQueryResult = NonNullable<Awaited<ReturnType<typeof listarSincronizacoesAnp>>>
+export type ListarSincronizacoesAnpQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Lista as execuções recentes da sincronização ANP
+ */
+
+export function useListarSincronizacoesAnp<TData = Awaited<ReturnType<typeof listarSincronizacoesAnp>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listarSincronizacoesAnp>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListarSincronizacoesAnpQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getObterSincronizacaoAnpUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/sincronizacoes/${id}`
+}
+
+/**
+ * @summary Consulta o progresso de uma sincronização ANP
+ */
+export const obterSincronizacaoAnp = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<SincronizacaoAnp> => {
+
+  return customFetch<SincronizacaoAnp>(getObterSincronizacaoAnpUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getObterSincronizacaoAnpQueryKey = (id: string,) => {
+    return [
+    `/api/admin/sincronizacoes/${id}`
+    ] as const;
+    }
+
+
+export const getObterSincronizacaoAnpQueryOptions = <TData = Awaited<ReturnType<typeof obterSincronizacaoAnp>>, TError = ErrorType<Erro>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof obterSincronizacaoAnp>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getObterSincronizacaoAnpQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof obterSincronizacaoAnp>>> = ({ signal }) => obterSincronizacaoAnp(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof obterSincronizacaoAnp>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ObterSincronizacaoAnpQueryResult = NonNullable<Awaited<ReturnType<typeof obterSincronizacaoAnp>>>
+export type ObterSincronizacaoAnpQueryError = ErrorType<Erro>
+
+
+/**
+ * @summary Consulta o progresso de uma sincronização ANP
+ */
+
+export function useObterSincronizacaoAnp<TData = Awaited<ReturnType<typeof obterSincronizacaoAnp>>, TError = ErrorType<Erro>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof obterSincronizacaoAnp>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getObterSincronizacaoAnpQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 

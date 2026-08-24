@@ -4,3 +4,4 @@
 - [Playwright no ambiente Replit](playwright-system-deps.md) — Chromium precisa de bibliotecas gráficas/áudio declaradas no ambiente para o E2E iniciar.
 - [Recuperação de rede no mapa PWA](pwa-map-network-recovery.md) — worker e consultas do mapa precisam falhar em prazo finito para expor recuperação, nunca ficarem em espera silenciosa.
 - [Isolamento de rede dos testes](test-browser-network-isolation.md) — o navegador de teste não alcança servidores temporários iniciados pelo shell; valide por artefato ou workflow acessível.
+- [Seleção municipal no APEX da ANP](anp-apex-session-state.md) — o mapa depende de estado de sessão persistido pelo fluxo visual; alterações diretas no select não bastam.

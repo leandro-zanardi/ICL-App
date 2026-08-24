@@ -138,11 +138,6 @@ export function parseCsvAnp(csv: string): ResultadoParse {
       .filter(Boolean)
       .join(" — ");
 
-    if (!cnpj && !nomeFantasia) {
-      if (erros.length < 15) erros.push(`Linha ${i + 1}: sem CNPJ e sem nome — ignorada.`);
-      continue;
-    }
-
     if (!/^\d{14}$/.test(cnpj)) {
       if (erros.length < 15) {
         erros.push(`Linha ${i + 1}: CNPJ ausente ou inválido — ignorada.`);
@@ -150,17 +145,29 @@ export function parseCsvAnp(csv: string): ResultadoParse {
       continue;
     }
 
+    const razaoSocial = pegar(campos, col.razao);
+    const bandeira = pegar(campos, col.bandeira);
+    const municipio = pegar(campos, col.municipio);
+    const uf = pegar(campos, col.uf).toUpperCase().slice(0, 2);
+    const situacaoAnp = pegar(campos, col.situacao);
+    if (!razaoSocial || !nomeFantasia || !bandeira || !endereco || !municipio || !uf || !situacaoAnp) {
+      if (erros.length < 15) {
+        erros.push(`Linha ${i + 1}: campos cadastrais oficiais incompletos — ignorada.`);
+      }
+      continue;
+    }
+
     linhas.push({
       cnpj,
-      razaoSocial: pegar(campos, col.razao) || nomeFantasia,
+      razaoSocial,
       nomeFantasia,
-      bandeira: pegar(campos, col.bandeira) || "Bandeira Branca",
-      endereco: endereco || "Endereço não informado",
-      municipio: pegar(campos, col.municipio) || "Não informado",
-      uf: (pegar(campos, col.uf) || "SP").toUpperCase().slice(0, 2),
+      bandeira,
+      endereco,
+      municipio,
+      uf,
       lat: parseNumero(pegar(campos, col.lat)),
       lng: parseNumero(pegar(campos, col.lng)),
-      situacaoAnp: pegar(campos, col.situacao) || "Ativa",
+      situacaoAnp,
       dataAutorizacao: pegar(campos, col.dataAut) || null,
     });
   }

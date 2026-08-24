@@ -1,4 +1,5 @@
 import {
+  anpSincronizacoes,
   carteiras,
   checkins,
   classificacoes,
@@ -13,7 +14,7 @@ import {
   usuarios,
   type NovoPosto,
 } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { inArray, isNotNull, sql } from "drizzle-orm";
 import { calcularScore } from "./score";
 import { logger } from "./logger";
 
@@ -352,8 +353,29 @@ export async function resetDemo(): Promise<void> {
     await tx.delete(carteiras);
     await tx.delete(usuarios);
     await tx.delete(denuncias);
-    await tx.delete(classificacoes);
     await tx.delete(rotasCache);
+
+    const [sincronizacaoAtiva] = await tx
+      .select({ id: anpSincronizacoes.id })
+      .from(anpSincronizacoes)
+      .where(inArray(anpSincronizacoes.status, ["queued", "running"]))
+      .limit(1);
+    if (sincronizacaoAtiva) {
+      throw new Error("Não é possível reiniciar a demonstração enquanto a sincronização ANP está em andamento.");
+    }
+
+    // Uma base importada da ANP é a fonte de verdade. O reset da barra de
+    // demonstração só limpa a atividade do usuário e jamais repõe o seed por
+    // cima de registros reais, preservando IDs usados por vínculos existentes.
+    const [{ totalReais }] = await tx
+      .select({ totalReais: sql<number>`count(*)::int` })
+      .from(postos)
+      .where(isNotNull(postos.sincronizadoEm));
+    if (totalReais > 0) {
+      return;
+    }
+
+    await tx.delete(classificacoes);
     await tx.delete(postos);
     await tx.delete(recompensas);
     await seed(tx);
