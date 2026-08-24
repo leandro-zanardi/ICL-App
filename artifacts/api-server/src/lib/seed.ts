@@ -164,8 +164,7 @@ function escolherBandeira(rng: () => number): string {
 
 function gerarCnpj(rng: () => number): string {
   const d = () => Math.floor(rng() * 10);
-  const raiz = `${d()}${d()}.${d()}${d()}${d()}.${d()}${d()}${d()}`;
-  return `${raiz}/0001-${d()}${d()}`;
+  return `${d()}${d()}${d()}${d()}${d()}${d()}${d()}${d()}0001${d()}${d()}`;
 }
 
 function dataAleatoria(rng: () => number, anoMin: number, anoMax: number): string {

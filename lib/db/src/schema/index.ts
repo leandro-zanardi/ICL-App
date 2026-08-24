@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -25,11 +26,24 @@ export const postos = appSchema.table(
     razaoSocial: text("razao_social").notNull(),
     nomeFantasia: text("nome_fantasia").notNull(),
     bandeira: text("bandeira").notNull(),
+    codigoInstalacaoAnp: text("codigo_instalacao_anp"),
+    tipoPosto: text("tipo_posto"),
+    distribuidora: text("distribuidora"),
+    inicioDistribuidora: date("inicio_distribuidora", { mode: "string" }),
+    situacao: text("situacao"),
     endereco: text("endereco").notNull(),
+    complemento: text("complemento"),
+    bairro: text("bairro"),
+    cep: text("cep"),
     municipio: text("municipio").notNull(),
     uf: text("uf").notNull().default("SP"),
     lat: doublePrecision("lat").notNull(),
     lng: doublePrecision("lng").notNull(),
+    tempoAutorizacaoAnos: integer("tempo_autorizacao_anos"),
+    statusRecebimento: text("status_recebimento"),
+    notaAnpColetada: integer("nota_anp"),
+    notaAnpCalculada: integer("nota_calculada"),
+    sincronizadoEm: timestamp("sincronizado_em", { withTimezone: true }),
     // Critérios brutos usados no cálculo do selo
     situacaoAnp: text("situacao_anp").notNull().default("Ativa"),
     dataAutorizacaoAnp: text("data_autorizacao_anp"),
@@ -45,8 +59,146 @@ export const postos = appSchema.table(
   },
   (t) => [
     uniqueIndex("postos_cnpj_idx").on(t.cnpj),
+    uniqueIndex("postos_codigo_instalacao_idx").on(t.codigoInstalacaoAnp),
     index("postos_municipio_idx").on(t.municipio),
     index("postos_tier_idx").on(t.tier),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Dados detalhados do registro ANP. Todos os históricos apontam para o
+// identificador interno do posto; as chaves externas da ANP ficam no cadastro.
+// ---------------------------------------------------------------------------
+export const autorizacoes = appSchema.table(
+  "autorizacoes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id")
+      .notNull()
+      .references(() => postos.id, { onDelete: "cascade" }),
+    numeroAutorizacao: text("numero_autorizacao"),
+    portariaResolucao: text("portaria_resolucao"),
+    numeroDespacho: text("numero_despacho"),
+    numeroProcesso: text("numero_processo"),
+    dataEnvioDou: date("data_envio_dou", { mode: "string" }),
+    dataPublicacaoDou: date("data_publicacao_dou", { mode: "string" }),
+  },
+  (t) => [index("autorizacoes_posto_idx").on(t.postoId)],
+);
+
+export const produtosPosto = appSchema.table(
+  "produtos_posto",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id")
+      .notNull()
+      .references(() => postos.id, { onDelete: "cascade" }),
+    produto: text("produto").notNull(),
+    bicosAbastecimento: integer("bicos_abastecimento"),
+    volumeTancagemM3: integer("volume_tancagem_m3"),
+  },
+  (t) => [index("produtos_posto_posto_idx").on(t.postoId)],
+);
+
+export const fiscalizacoes = appSchema.table(
+  "fiscalizacoes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id")
+      .notNull()
+      .references(() => postos.id, { onDelete: "cascade" }),
+    numeroDf: text("numero_df"),
+    dataFiscalizacao: date("data_fiscalizacao", { mode: "string" }).notNull(),
+    tipoConvenio: text("tipo_convenio"),
+    fiscalizacaoDeCampo: text("fiscalizacao_de_campo"),
+  },
+  (t) => [
+    index("fiscalizacoes_posto_idx").on(t.postoId),
+    index("fiscalizacoes_data_idx").on(t.dataFiscalizacao),
+  ],
+);
+
+export const irregularidades = appSchema.table(
+  "irregularidades",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id")
+      .notNull()
+      .references(() => postos.id, { onDelete: "cascade" }),
+    numeroDf: text("numero_df"),
+    dataFiscalizacao: date("data_fiscalizacao", { mode: "string" }).notNull(),
+    classificacao: text("classificacao").notNull(),
+    descricao: text("descricao"),
+    componenteDf: text("componente_df"),
+  },
+  (t) => [
+    index("irregularidades_posto_idx").on(t.postoId),
+    index("irregularidades_data_idx").on(t.dataFiscalizacao),
+  ],
+);
+
+export const amostrasPmqc = appSchema.table(
+  "amostras_pmqc",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id")
+      .notNull()
+      .references(() => postos.id, { onDelete: "cascade" }),
+    dataColeta: date("data_coleta", { mode: "string" }).notNull(),
+    produto: text("produto").notNull(),
+    conforme: boolean("conforme").notNull(),
+  },
+  (t) => [
+    index("amostras_pmqc_posto_idx").on(t.postoId),
+    index("amostras_pmqc_data_idx").on(t.dataColeta),
+  ],
+);
+
+export const ensaiosNaoConformes = appSchema.table(
+  "ensaios_nao_conformes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id")
+      .notNull()
+      .references(() => postos.id, { onDelete: "cascade" }),
+    dataColeta: date("data_coleta", { mode: "string" }).notNull(),
+    produto: text("produto").notNull(),
+    nomeEnsaio: text("nome_ensaio").notNull(),
+    resultado: text("resultado"),
+  },
+  (t) => [
+    index("ensaios_nao_conformes_posto_idx").on(t.postoId),
+    index("ensaios_nao_conformes_data_idx").on(t.dataColeta),
+  ],
+);
+
+export const origemCombustivel = appSchema.table(
+  "origem_combustivel",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id")
+      .notNull()
+      .references(() => postos.id, { onDelete: "cascade" }),
+    distribuidoraPosto: text("distribuidora_posto"),
+    distribuidoraOrigem: text("distribuidora_origem").notNull(),
+    volumePct: doublePrecision("volume_pct").notNull(),
+  },
+  (t) => [index("origem_combustivel_posto_idx").on(t.postoId)],
+);
+
+export const anpRawSnapshots = appSchema.table(
+  "anp_raw_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postoId: uuid("posto_id").references(() => postos.id, { onDelete: "cascade" }),
+    pagina: text("pagina").notNull(),
+    urlSemSessao: text("url_sem_sessao"),
+    conteudo: jsonb("conteudo").notNull(),
+    coletadoEm: timestamp("coletado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("anp_raw_snapshots_posto_idx").on(t.postoId),
+    index("anp_raw_snapshots_coletado_idx").on(t.coletadoEm),
   ],
 );
 
@@ -223,6 +375,14 @@ export const eventos = analyticsSchema.table(
 
 export type Posto = typeof postos.$inferSelect;
 export type NovoPosto = typeof postos.$inferInsert;
+export type Autorizacao = typeof autorizacoes.$inferSelect;
+export type ProdutoPosto = typeof produtosPosto.$inferSelect;
+export type Fiscalizacao = typeof fiscalizacoes.$inferSelect;
+export type Irregularidade = typeof irregularidades.$inferSelect;
+export type AmostraPmqc = typeof amostrasPmqc.$inferSelect;
+export type EnsaioNaoConforme = typeof ensaiosNaoConformes.$inferSelect;
+export type OrigemCombustivel = typeof origemCombustivel.$inferSelect;
+export type AnpRawSnapshot = typeof anpRawSnapshots.$inferSelect;
 export type Classificacao = typeof classificacoes.$inferSelect;
 export type Usuario = typeof usuarios.$inferSelect;
 export type Carteira = typeof carteiras.$inferSelect;

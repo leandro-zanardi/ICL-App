@@ -143,8 +143,15 @@ export function parseCsvAnp(csv: string): ResultadoParse {
       continue;
     }
 
+    if (!/^\d{14}$/.test(cnpj)) {
+      if (erros.length < 15) {
+        erros.push(`Linha ${i + 1}: CNPJ ausente ou inválido — ignorada.`);
+      }
+      continue;
+    }
+
     linhas.push({
-      cnpj: cnpj || `SEM-CNPJ-${i}`,
+      cnpj,
       razaoSocial: pegar(campos, col.razao) || nomeFantasia,
       nomeFantasia,
       bandeira: pegar(campos, col.bandeira) || "Bandeira Branca",
