@@ -56,8 +56,12 @@ function dividirLinha(linha: string, sep: string): string[] {
 }
 
 function parseNumero(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const n = Number(raw.replace(/\./g, (m, i, s) => (s.includes(",") ? m : m)).replace(",", "."));
+  if (!raw?.trim()) return null;
+  const valor = raw.trim();
+  const normalizado = valor.includes(",")
+    ? valor.replace(/\./g, "").replace(",", ".")
+    : valor;
+  const n = Number(normalizado);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -90,12 +94,22 @@ export function parseCsvAnp(csv: string): ResultadoParse {
     fantasia: acharColuna(headers, ["nomefantasia", "fantasia"]),
     bandeira: acharColuna(headers, ["bandeira", "distribuidora"]),
     endereco: acharColuna(headers, ["endereco", "logradouro"]),
+    complemento: acharColuna(headers, ["complemento"]),
+    bairro: acharColuna(headers, ["bairro"]),
+    cep: acharColuna(headers, ["cep"]),
     municipio: acharColuna(headers, ["municipio", "cidade"]),
     uf: acharColuna(headers, ["uf", "estado"]),
     lat: acharColuna(headers, ["latitude", "lat"]),
     lng: acharColuna(headers, ["longitude", "long", "lng"]),
     situacao: acharColuna(headers, ["situacao", "status"]),
-    dataAut: acharColuna(headers, ["dataautorizacao", "autorizacao", "datadespacho"]),
+    // No arquivo oficial atual, DATAPUBLICACAO é a data da publicação da
+    // autorização. Os aliases mantêm compatibilidade com extratos antigos.
+    dataAut: acharColuna(headers, [
+      "datapublicacao",
+      "dataautorizacao",
+      "datavinculacao",
+      "datadespacho",
+    ]),
   };
 
   if (col.cnpj < 0 && col.fantasia < 0) {
@@ -115,6 +129,14 @@ export function parseCsvAnp(csv: string): ResultadoParse {
     const campos = dividirLinha(linhasBrutas[i], sep);
     const cnpj = pegar(campos, col.cnpj).replace(/\D/g, "");
     const nomeFantasia = pegar(campos, col.fantasia) || pegar(campos, col.razao);
+    const endereco = [
+      pegar(campos, col.endereco),
+      pegar(campos, col.complemento),
+      pegar(campos, col.bairro),
+      pegar(campos, col.cep) ? `CEP ${pegar(campos, col.cep)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" — ");
 
     if (!cnpj && !nomeFantasia) {
       if (erros.length < 15) erros.push(`Linha ${i + 1}: sem CNPJ e sem nome — ignorada.`);
@@ -126,7 +148,7 @@ export function parseCsvAnp(csv: string): ResultadoParse {
       razaoSocial: pegar(campos, col.razao) || nomeFantasia,
       nomeFantasia,
       bandeira: pegar(campos, col.bandeira) || "Bandeira Branca",
-      endereco: pegar(campos, col.endereco) || "Endereço não informado",
+      endereco: endereco || "Endereço não informado",
       municipio: pegar(campos, col.municipio) || "Não informado",
       uf: (pegar(campos, col.uf) || "SP").toUpperCase().slice(0, 2),
       lat: parseNumero(pegar(campos, col.lat)),

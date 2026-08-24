@@ -1,4 +1,4 @@
-const VERSION = 'combustivel-legal-v1';
+const VERSION = 'combustivel-legal-v2';
 const APP_CACHE = `${VERSION}-app`;
 const MAP_CACHE = `${VERSION}-map`;
 const API_CACHE = `${VERSION}-api`;
@@ -35,8 +35,13 @@ function isMapTile(url) {
   return url.hostname.includes('tile.openstreetmap.org');
 }
 
-function isApiGet(request) {
-  return request.method === 'GET' && new URL(request.url).pathname.includes('/api/');
+function isPublicApiGet(request, url) {
+  if (request.method !== 'GET' || request.headers.has('authorization')) return false;
+
+  // Cache only resources whose payload is public and independent of the
+  // anonymous session. Every other API request must always reach the network:
+  // Cache Storage does not distinguish responses by Authorization headers.
+  return url.pathname === '/api/postos' || url.pathname === '/api/geo/buscar';
 }
 
 self.addEventListener('fetch', (event) => {
@@ -57,7 +62,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (isApiGet(request)) {
+  if (isPublicApiGet(request, url)) {
     event.respondWith(
       caches.open(API_CACHE).then(async (cache) => {
         const cached = await cache.match(request);
@@ -68,6 +73,12 @@ self.addEventListener('fetch', (event) => {
         return cached || network;
       }),
     );
+    return;
+  }
+
+  // Never let private or mutation-adjacent API responses fall through to the
+  // generic app-shell cache below.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) {
     return;
   }
 

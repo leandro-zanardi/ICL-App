@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { useImportarCsvAnp, ImportacaoRelatorio } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
-import { Header } from '@/components/Header';
 import { FileUp, Loader2, CheckCircle2, AlertTriangle, FileText, Database } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -124,7 +123,7 @@ export default function AdminImportarPage() {
                 <StatBox label="Linhas Lidas" value={relatorio.linhas_lidas} />
                 <StatBox label="Importados" value={relatorio.importadas} color="text-green-600" />
                 <StatBox label="Atualizados" value={relatorio.atualizadas} color="text-blue-600" />
-                <StatBox label="Descartados" value={relatorio.descartadas} color="text-orange-600" />
+                <StatBox label="Fora da região-piloto" value={relatorio.descartadas} color="text-orange-600" />
               </div>
 
               <div className="bg-slate-50 p-4 rounded-xl mb-6 flex justify-between items-center border border-slate-200">
