@@ -358,6 +358,23 @@ export async function customFetch<T = unknown>(
     }
   }
 
+  // Browser-only defaults: attach the demo session token and the anonymous
+  // session id kept in localStorage (used by the Combustível Legal web app).
+  if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
+    try {
+      if (!headers.has("authorization")) {
+        const token = window.localStorage.getItem("cl_token");
+        if (token) headers.set("authorization", `Bearer ${token}`);
+      }
+      if (!headers.has("x-session-id")) {
+        const session = window.localStorage.getItem("cl_session");
+        if (session) headers.set("x-session-id", session);
+      }
+    } catch {
+      // localStorage can be unavailable (e.g. blocked storage); ignore.
+    }
+  }
+
   const requestInfo = { method, url: resolveUrl(input) };
 
   const response = await fetch(input, { ...init, method, headers });

@@ -1,0 +1,19 @@
+{
+  "name": "Combustível Legal",
+  "short_name": "Combustível Legal",
+  "description": "Encontre postos verificados e abasteça com confiança.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#0E2A47",
+  "background_color": "#F7F8FA",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

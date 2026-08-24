@@ -26,7 +26,8 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
+// Limite ampliado para permitir o upload do CSV da ANP como JSON ({ csv })
+app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);

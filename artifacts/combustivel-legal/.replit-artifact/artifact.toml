@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Combustível Legal"
+description = "Protótipo navegável do Aplicativo do Combustível Legal (ICL): mapa mobile-first que mostra postos verificados com o Selo Combustível Legal na região piloto SP-Campinas, com rotas, check-in com pontos, resgate de recompensas com QR, denúncias e um modo apresentação B2B2C com dashboard da associada ao vivo."
+version = "1.0.0"
+id = "artifacts/combustivel-legal"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22871
+
+[services.development]
+run = "pnpm --filter @workspace/combustivel-legal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/combustivel-legal", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/combustivel-legal/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22871"
+BASE_PATH = "/"

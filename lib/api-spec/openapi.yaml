@@ -3,13 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API do Aplicativo do Combustível Legal (ICL) — protótipo Fase 1
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: postos
+    description: Postos e classificações do Selo Combustível Legal
+  - name: rotas
+    description: Cálculo de rota e postos no corredor
+  - name: geo
+    description: Geocodificação de endereços
+  - name: conta
+    description: Cadastro leve por OTP, carteira de pontos
+  - name: beneficios
+    description: Check-ins, recompensas e resgates
+  - name: denuncias
+    description: Denúncias encaminhadas aos canais do ICL
+  - name: apresentacao
+    description: Dashboard da associada (modo apresentação)
+  - name: demo
+    description: Controles do modo demonstração
+  - name: admin
+    description: Importação do CSV oficial da ANP
 paths:
   /healthz:
     get:
@@ -24,7 +42,377 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /postos:
+    get:
+      operationId: listarPostos
+      tags: [postos]
+      summary: Lista postos próximos de uma posição
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lng
+          in: query
+          required: true
+          schema: { type: number }
+        - name: raio_km
+          in: query
+          required: false
+          schema: { type: number, default: 10 }
+        - name: somente_selo
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+        - name: q
+          in: query
+          required: false
+          description: Busca textual por nome, bandeira, endereço ou município
+          schema: { type: string }
+      responses:
+        "200":
+          description: Postos ordenados por distância
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PostoResumo"
+  /postos/{id}:
+    get:
+      operationId: obterPosto
+      tags: [postos]
+      summary: Ficha completa do posto com critérios do selo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Ficha do posto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostoDetalhe"
+        "404":
+          description: Posto não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /rotas:
+    post:
+      operationId: calcularRota
+      tags: [rotas]
+      summary: Calcula rota entre origem e destino com postos verificados no corredor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RotaInput"
+      responses:
+        "200":
+          description: Rota com polyline e postos do corredor (buffer de 2 km)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rota"
+        "400":
+          description: Origem ou destino não encontrados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /geo/buscar:
+    get:
+      operationId: buscarEndereco
+      tags: [geo]
+      summary: Busca endereços com viés na região piloto (SP)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Sugestões de endereço
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeoPonto"
+  /conta/otp:
+    post:
+      operationId: enviarOtp
+      tags: [conta]
+      summary: Envia código OTP (simulado em modo demo — aceita 1234)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpEnvio"
+      responses:
+        "200":
+          description: Código enviado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpEnvioResposta"
+        "400":
+          description: Contato inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /conta/verificar:
+    post:
+      operationId: verificarOtp
+      tags: [conta]
+      summary: Verifica o código OTP e cria/retorna a conta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpVerificacao"
+      responses:
+        "200":
+          description: Sessão criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sessao"
+        "400":
+          description: Código incorreto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /conta/carteira:
+    get:
+      operationId: obterCarteira
+      tags: [conta]
+      summary: Saldo de pontos e extrato de transações
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Carteira do usuário
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Carteira"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /checkins:
+    post:
+      operationId: criarCheckin
+      tags: [beneficios]
+      summary: Check-in "Abasteci aqui" — credita 50 pontos
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckinInput"
+      responses:
+        "200":
+          description: Check-in realizado e pontos creditados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinResultado"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "404":
+          description: Posto não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "409":
+          description: Cooldown ativo (1 check-in por posto a cada 6 h)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /recompensas:
+    get:
+      operationId: listarRecompensas
+      tags: [beneficios]
+      summary: Catálogo de recompensas
+      responses:
+        "200":
+          description: Recompensas disponíveis
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recompensa"
+  /resgates:
+    get:
+      operationId: listarResgates
+      tags: [beneficios]
+      summary: Cupons resgatados pelo usuário
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Cupons do usuário (mais recentes primeiro)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Resgate"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+    post:
+      operationId: criarResgate
+      tags: [beneficios]
+      summary: Resgata uma recompensa gerando cupom com código e QR
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResgateInput"
+      responses:
+        "200":
+          description: Cupom emitido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resgate"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "409":
+          description: Saldo insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /denuncias:
+    post:
+      operationId: criarDenuncia
+      tags: [denuncias]
+      summary: Registra denúncia encaminhada aos canais do ICL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DenunciaInput"
+      responses:
+        "200":
+          description: Denúncia registrada com protocolo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DenunciaResposta"
+        "400":
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /apresentacao/dashboard:
+    get:
+      operationId: obterDashboard
+      tags: [apresentacao]
+      summary: Métricas ao vivo do Dashboard da Associada (Distribuidora Horizonte)
+      responses:
+        "200":
+          description: Agregados do dia e feed de eventos recentes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardAssociada"
+  /demo/reset:
+    post:
+      operationId: resetarDemo
+      tags: [demo]
+      summary: Restaura os dados da demonstração ao estado inicial
+      responses:
+        "200":
+          description: Dados restaurados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoResultado"
+  /demo/eventos:
+    post:
+      operationId: gerarEventosDemo
+      tags: [demo]
+      summary: Gera eventos sintéticos para animar o dashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DemoEventosInput"
+      responses:
+        "200":
+          description: Eventos gerados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoEventosResultado"
+  /admin/importar:
+    post:
+      operationId: importarCsvAnp
+      tags: [admin]
+      summary: Importa o CSV oficial da ANP e substitui o seed de demonstração
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportacaoInput"
+      responses:
+        "200":
+          description: Relatório de importação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportacaoRelatorio"
+        "400":
+          description: CSV inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Token de sessão retornado por /conta/verificar
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +421,320 @@ components:
           type: string
       required:
         - status
-
+    Erro:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    TierSelo:
+      type: string
+      enum: [selo, regular, sem_verificacao]
+      description: selo = verificado; regular = ativo com pendência; sem_verificacao = sem verificação ativa
+    PostoResumo:
+      type: object
+      required:
+        [id, nome_fantasia, bandeira, endereco, municipio, uf, lat, lng, tier, score, distancia_km, rede_associada]
+      properties:
+        id: { type: string }
+        nome_fantasia: { type: string }
+        bandeira: { type: string }
+        endereco: { type: string }
+        municipio: { type: string }
+        uf: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        tier: { $ref: "#/components/schemas/TierSelo" }
+        score: { type: integer }
+        distancia_km: { type: number }
+        rede_associada: { type: boolean }
+    SeloCriterios:
+      type: object
+      required: [situacao_anp_ativa, sem_autuacoes_24m, qualidade_conforme, bandeira_consistente]
+      properties:
+        situacao_anp_ativa: { type: boolean }
+        sem_autuacoes_24m: { type: boolean }
+        qualidade_conforme: { type: boolean }
+        bandeira_consistente: { type: boolean }
+    PostoDetalhe:
+      type: object
+      required:
+        [id, cnpj, razao_social, nome_fantasia, bandeira, endereco, municipio, uf, lat, lng, tier, score, criterios, situacao_anp, autuacoes_24m, total_checkins, atualizado_em]
+      properties:
+        id: { type: string }
+        cnpj: { type: string }
+        razao_social: { type: string }
+        nome_fantasia: { type: string }
+        bandeira: { type: string }
+        endereco: { type: string }
+        municipio: { type: string }
+        uf: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        tier: { $ref: "#/components/schemas/TierSelo" }
+        score: { type: integer }
+        criterios: { $ref: "#/components/schemas/SeloCriterios" }
+        situacao_anp: { type: string }
+        data_autorizacao_anp: { type: ["string", "null"] }
+        qualidade_verificada_em: { type: ["string", "null"] }
+        autuacoes_24m: { type: integer }
+        total_checkins: { type: integer }
+        atualizado_em: { type: string }
+    GeoPonto:
+      type: object
+      required: [label, lat, lng]
+      properties:
+        label: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+    RotaInput:
+      type: object
+      required: [origem, destino]
+      properties:
+        origem: { type: string, minLength: 2 }
+        destino: { type: string, minLength: 2 }
+    PostoCorredor:
+      type: object
+      required:
+        [id, nome_fantasia, bandeira, endereco, municipio, lat, lng, tier, score, desvio_km, ordem, rede_associada]
+      properties:
+        id: { type: string }
+        nome_fantasia: { type: string }
+        bandeira: { type: string }
+        endereco: { type: string }
+        municipio: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        tier: { $ref: "#/components/schemas/TierSelo" }
+        score: { type: integer }
+        desvio_km:
+          type: number
+          description: Distância do desvio a partir do trajeto, em km
+        ordem:
+          type: integer
+          description: Posição do posto ao longo do trajeto (1 = primeiro)
+        rede_associada: { type: boolean }
+    Rota:
+      type: object
+      required: [origem, destino, polyline, distancia_km, duracao_min, postos, fonte]
+      properties:
+        origem: { $ref: "#/components/schemas/GeoPonto" }
+        destino: { $ref: "#/components/schemas/GeoPonto" }
+        polyline:
+          type: array
+          description: Pares [lat, lng] prontos para o mapa
+          items:
+            type: array
+            items: { type: number }
+        distancia_km: { type: number }
+        duracao_min: { type: number }
+        postos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostoCorredor"
+        fonte:
+          type: string
+          description: osrm | cache | fallback
+    OtpEnvio:
+      type: object
+      required: [contato]
+      properties:
+        contato:
+          type: string
+          minLength: 5
+          description: Telefone ou e-mail
+    OtpEnvioResposta:
+      type: object
+      required: [modo_demo, mensagem]
+      properties:
+        modo_demo: { type: boolean }
+        mensagem: { type: string }
+    OtpVerificacao:
+      type: object
+      required: [contato, codigo]
+      properties:
+        contato: { type: string, minLength: 5 }
+        codigo: { type: string, minLength: 4, maxLength: 6 }
+    Usuario:
+      type: object
+      required: [id, contato, criado_em]
+      properties:
+        id: { type: string }
+        contato: { type: string }
+        criado_em: { type: string }
+    Sessao:
+      type: object
+      required: [token, usuario]
+      properties:
+        token: { type: string }
+        usuario: { $ref: "#/components/schemas/Usuario" }
+    TransacaoPontos:
+      type: object
+      required: [id, tipo, pontos, descricao, criado_em]
+      properties:
+        id: { type: string }
+        tipo:
+          type: string
+          enum: [credito, debito]
+        pontos: { type: integer }
+        descricao: { type: string }
+        criado_em: { type: string }
+    Carteira:
+      type: object
+      required: [saldo, transacoes]
+      properties:
+        saldo: { type: integer }
+        transacoes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransacaoPontos"
+    CheckinInput:
+      type: object
+      required: [posto_id, lat, lng]
+      properties:
+        posto_id: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+    CheckinResultado:
+      type: object
+      required: [pontos_ganhos, saldo, posto_nome, distancia_m]
+      properties:
+        pontos_ganhos: { type: integer }
+        saldo: { type: integer }
+        posto_nome: { type: string }
+        distancia_m: { type: integer }
+    Recompensa:
+      type: object
+      required: [id, nome, descricao, custo_pontos, categoria]
+      properties:
+        id: { type: string }
+        nome: { type: string }
+        descricao: { type: string }
+        custo_pontos: { type: integer }
+        categoria: { type: string }
+    ResgateInput:
+      type: object
+      required: [recompensa_id]
+      properties:
+        recompensa_id: { type: string }
+    Resgate:
+      type: object
+      required: [id, codigo, status, criado_em, recompensa]
+      properties:
+        id: { type: string }
+        codigo:
+          type: string
+          description: Código alfanumérico do cupom (também usado no QR)
+        status:
+          type: string
+          enum: [ativo, utilizado]
+        criado_em: { type: string }
+        recompensa: { $ref: "#/components/schemas/Recompensa" }
+    DenunciaInput:
+      type: object
+      required: [categoria, descricao]
+      properties:
+        posto_id: { type: ["string", "null"] }
+        categoria:
+          type: string
+          enum: [qualidade_combustivel, volume_bomba, posto_clone, outra]
+        descricao: { type: string, minLength: 5 }
+        foto_nome:
+          type: ["string", "null"]
+          description: Nome do arquivo anexado (opcional, apenas referência no protótipo)
+    DenunciaResposta:
+      type: object
+      required: [id, protocolo, criado_em]
+      properties:
+        id: { type: string }
+        protocolo: { type: string }
+        criado_em: { type: string }
+    PostoVisualizacao:
+      type: object
+      required: [posto_id, nome_fantasia, municipio, visualizacoes]
+      properties:
+        posto_id: { type: string }
+        nome_fantasia: { type: string }
+        municipio: { type: string }
+        visualizacoes: { type: integer }
+    DenunciasMunicipio:
+      type: object
+      required: [municipio, total]
+      properties:
+        municipio: { type: string }
+        total: { type: integer }
+    EventoFeed:
+      type: object
+      required: [id, event_type, descricao, criado_em]
+      properties:
+        id: { type: string }
+        event_type:
+          type: string
+          enum: [busca, visualizou_posto, rota_tracada, checkin, resgate, denuncia, reset]
+        descricao: { type: string }
+        municipio: { type: ["string", "null"] }
+        rede_associada: { type: boolean }
+        criado_em: { type: string }
+    DashboardAssociada:
+      type: object
+      required:
+        [associada, postos_rede, visualizacoes_hoje, checkins_hoje, resgates_hoje, rotas_hoje, denuncias_hoje, postos_mais_vistos, denuncias_por_municipio, eventos_recentes]
+      properties:
+        associada: { type: string }
+        postos_rede: { type: integer }
+        visualizacoes_hoje: { type: integer }
+        checkins_hoje: { type: integer }
+        resgates_hoje: { type: integer }
+        rotas_hoje: { type: integer }
+        denuncias_hoje: { type: integer }
+        postos_mais_vistos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostoVisualizacao"
+        denuncias_por_municipio:
+          type: array
+          items:
+            $ref: "#/components/schemas/DenunciasMunicipio"
+        eventos_recentes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventoFeed"
+    DemoResultado:
+      type: object
+      required: [ok, mensagem]
+      properties:
+        ok: { type: boolean }
+        mensagem: { type: string }
+    DemoEventosInput:
+      type: object
+      properties:
+        quantidade:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 6
+    DemoEventosResultado:
+      type: object
+      required: [gerados]
+      properties:
+        gerados: { type: integer }
+    ImportacaoInput:
+      type: object
+      required: [csv]
+      properties:
+        csv:
+          type: string
+          description: Conteúdo bruto do CSV oficial da ANP (lido no navegador)
+    ImportacaoRelatorio:
+      type: object
+      required:
+        [linhas_lidas, importadas, atualizadas, descartadas, postos_total, postos_selo, erros]
+      properties:
+        linhas_lidas: { type: integer }
+        importadas: { type: integer }
+        atualizadas: { type: integer }
+        descartadas: { type: integer }
+        postos_total: { type: integer }
+        postos_selo: { type: integer }
+        erros:
+          type: array
+          items: { type: string }
