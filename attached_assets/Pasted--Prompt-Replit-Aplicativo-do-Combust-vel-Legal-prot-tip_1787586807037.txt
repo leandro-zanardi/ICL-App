@@ -1,0 +1,85 @@
+# Prompt Replit — Aplicativo do Combustível Legal (protótipo Fase 1)
+
+Cole o bloco abaixo no Replit Agent como prompt inicial. Depois do primeiro build, use os prompts de iteração no final do arquivo, um por vez.
+
+---
+
+## PROMPT PRINCIPAL (colar no Replit Agent)
+
+Construa o protótipo navegável do **Aplicativo do Combustível Legal**, produto B2C do Instituto Combustível Legal (ICL), para apresentação a cliente. Não é build de produção: é uma demonstração de alta fidelidade, com dados de uma região piloto, mostrando como o dado oficial da ANP chega ao motorista na hora de decidir onde abastecer.
+
+**Antes de escrever código, apresente para minha aprovação: (1) o plano de telas, (2) o schema do banco, (3) os tokens de design.** Só comece a implementar depois do meu OK.
+
+### O produto em uma frase
+Um app de mapa, no padrão de experiência de Waze/Google Maps, que responde "onde eu abasteço tranquilo?": mostra os postos verificados com o Selo Combustível Legal, facilita chegar até eles e recompensa quem escolhe certo. Não é comparador de preço — é produto de confiança.
+
+### Princípio inegociável de UX
+Ao abrir o app, o usuário entende em **3 segundos** onde abastecer. Se a primeira tela precisar de explicação, ela está errada. Mobile-first (viewport base 390px), botões grandes, zero jargão. Todo o texto da interface em **português do Brasil**. Público: qualquer motorista brasileiro, de qualquer idade e letramento digital.
+
+### Stack
+- React + Vite + TypeScript + Tailwind + shadcn/ui; backend Express + PostgreSQL (Drizzle).
+- Mapa: **Leaflet (react-leaflet) com tiles OpenStreetMap** — sem chave de API, a demo não pode quebrar.
+- Rotas: API pública do OSRM (`router.project-osrm.org`) para traçado; Turf.js para filtrar postos num buffer de 2 km ao longo da polyline.
+- PWA: manifest + ícone + display standalone, instalável na home screen do celular para a demonstração.
+- App como SPA mobile; em telas largas, renderizar dentro de um frame de celular centralizado (a apresentação será em projetor).
+
+### Identidade visual (ICL)
+- **Base:** azul-marinho institucional `#0E2A47`; fundo claro `#F7F8FA`; cinzas quentes para texto secundário.
+- **Assinatura:** a chama do ICL em gradiente `#FFC20E → #F58220 → #E63329`. O gradiente aparece **somente** no Selo Combustível Legal e no CTA primário — em nenhum outro lugar. O selo-chama é o elemento de marca do app: aparece no pin do mapa, na ficha do posto e na animação de check-in.
+- **Pins do mapa:** postos com selo = pin navy com a chama; demais postos = pin cinza neutro, menor. **Nunca** usar vermelho ou linguagem negativa para postos sem selo — o app destaca quem está dentro, não expõe quem está fora ("Sem selo" ≠ "irregular"; usar "sem verificação ativa").
+- **Tipografia:** display **Archivo** (peso 700/800, vibe de sinalização rodoviária) para títulos e números; **Inter** para corpo. Google Fonts.
+- **Tom de voz:** direto, do lado do motorista. Ex.: "Abasteça tranquilo", "12 postos verificados perto de você", "Você ganhou 50 pontos". Sentence case, sem juridiquês.
+
+### Modelo de dados
+Tabelas principais (schema `app`):
+- `postos`: cnpj, razao_social, nome_fantasia, bandeira, endereco, municipio, uf, lat, lng, data_autorizacao_anp, situacao_anp, qualidade_conforme (bool), autuacoes_24m (int), consistencia_bandeira (bool).
+- `classificacoes`: posto_id, score (0–100), tier (`selo` | `regular` | `sem_verificacao`), atualizado_em. Score calculado deterministicamente: situação ANP ativa + zero autuações em 24m + qualidade conforme + bandeira consistente ⇒ `selo`; explicável campo a campo na ficha.
+- `usuarios`: id, telefone_ou_email, criado_em (sem senha).
+- `carteiras` e `transacoes_pontos`: saldo, ganhos por check-in, resgates.
+- `recompensas` e `resgates`: catálogo + cupons emitidos (código + QR).
+- `denuncias`: posto_id (opcional), categoria, descricao, criado_em.
+- Schema separado `analytics.eventos`: event_type (`busca`, `visualizou_posto`, `rota_tracada`, `checkin`, `resgate`, `denuncia`), posto_id?, geohash de 5 caracteres (nunca lat/lng exata), session_hash (SHA-256 de user_id + salt), timestamp. **Nenhum PII em analytics — conformidade LGPD por construção.**
+
+### Dados da região piloto
+Região piloto: **capital de São Paulo + eixo SP–Campinas (rodovias Anhanguera e Bandeirantes)**. Tente baixar o CSV de dados abertos da ANP de revendedores autorizados e filtrar essa região; se o download não for possível no ambiente, gere um seed de 60–80 postos com estrutura idêntica à da ANP, marcado como `seed_demo = true`, e **crie uma rota de admin `/admin/importar` que aceita upload do CSV oficial da ANP e substitui o seed** (mapeando as colunas reais do dataset da ANP). Distribuir ~40% dos postos com tier `selo`.
+
+### Telas da Fase 1
+1. **Onboarding (2 telas no máximo).** Tela de boas-vindas com o selo-chama e uma frase; cadastro leve por telefone **ou** e-mail com código OTP simulado (aceitar `1234`, exibindo dica em modo demo). Botão "Entrar depois" — o mapa nunca é bloqueado; cadastro só é exigido ao resgatar benefício.
+2. **Home = Mapa.** Geolocalização do navegador (com fallback para posição simulada), postos num raio configurável (5/10/25 km), contador "N postos verificados perto de você", toggle "Só verificados", busca por endereço. Bottom navigation: Mapa · Rota · Benefícios · Denunciar.
+3. **Ficha do posto (bottom sheet).** Nome, bandeira, endereço, distância; selo em destaque com explicação expandível "O que este selo significa" listando os critérios atendidos (fiscalização ANP, qualidade, bandeira); histórico resumido; botão primário **"Traçar rota"** abrindo o app de mapas nativo via `https://www.google.com/maps/dir/?api=1&destination=lat,lng`; botão secundário "Abasteci aqui" (check-in com verificação de proximidade ≤ 300 m; em modo demo, sempre permitido) que credita pontos com micro-animação da chama.
+4. **Busca por rota.** Origem e destino ("São Paulo → Campinas" pré-preenchido como exemplo), traçado no mapa via OSRM, postos verificados ao longo do corredor listados na ordem do trajeto com distância do desvio.
+5. **Benefícios.** Saldo de pontos, regra simples ("Abasteceu em posto verificado = 50 pontos"), catálogo de 4 recompensas coerentes com o ecossistema (ex.: R$ 10 na troca de óleo, lavagem simples, café na conveniência, desconto em lubrificante), resgate gerando **cupom com QR code e código alfanumérico** — a mecânica precisa parecer real de ponta a ponta, mesmo simulada.
+6. **Denúncia.** Formulário: posto (pré-selecionado se veio da ficha), categoria (qualidade do combustível, volume/bomba, posto clone, outra), descrição, foto opcional; confirmação "Encaminhado aos canais do ICL" com link para o canal oficial existente do Instituto. Denúncia gera evento em analytics.
+
+### Modo apresentação (o que fecha o B2B2C)
+Rota **`/apresentacao`**: tela dividida — à esquerda, o app dentro de um frame de iPhone; à direita, um painel simplificado "Dashboard da Associada" (marca fictícia "Distribuidora Horizonte") com: postos da sua rede mais visualizados, rotas traçadas que passam por seus postos, check-ins e resgates do dia, denúncias por região, e um feed de eventos ao vivo. Cada ação feita no app à esquerda reflete no painel à direita em **menos de 2 segundos** (SSE ou polling curto). Essa é a cena central da apresentação: o motorista escolhe o posto e a associada vê o mercado respondendo.
+Incluir também uma barra discreta de modo demo (atalho `D`): resetar dados, teleportar posição do usuário para 3 pontos pré-definidos (Av. Paulista, Anhanguera km 40, Campinas centro), acelerar eventos sintéticos no painel.
+
+### Fora de escopo (não construir)
+Comparação de preços; pagamento; avaliações de usuários; IA/chat; push notifications; qualquer lista ou rótulo negativo de postos; autenticação com senha; múltiplas regiões.
+
+### Critérios de aceite
+- Fluxo demo completo sem erro: abrir → mapa → filtrar verificados → ficha → rota → check-in → pontos → resgate com QR → denúncia → reflexo de tudo no `/apresentacao`.
+- Primeira tela autoexplicativa (teste dos 3 segundos); interface 100% pt-BR; usável a um polegar em 390px; mapa carrega em menos de 3 s; nenhum dado pessoal na tabela de analytics.
+
+---
+
+## PROMPTS DE ITERAÇÃO (colar depois do primeiro build, um por vez)
+
+**Iteração 1 — polimento da cena principal:** "Abra o /apresentacao e execute o fluxo demo completo. Corrija qualquer passo que exija explicação verbal: latência do reflexo no dashboard, estados vazios, textos truncados. A cena precisa se sustentar sozinha num projetor."
+
+**Iteração 2 — selo e confiança:** "Refine a ficha do posto: a explicação do selo deve mostrar cada critério com o dado que o sustenta (ex.: 'Última verificação de qualidade: conforme'). Adicione no rodapé de toda ficha: 'Informações rastreáveis ao registro oficial da ANP'."
+
+**Iteração 3 — dado real:** "Vou fazer upload do CSV oficial da ANP da região piloto em /admin/importar. Ajuste o parser para as colunas exatas do arquivo, recalcule as classificações e me mostre um relatório de importação (linhas lidas, geocodificadas, descartadas)."
+
+**Iteração 4 — instalação no celular:** "Valide o PWA: manifest, ícones com o selo-chama, splash screen navy, funcionamento do 'Adicionar à tela inicial' no Android e iOS Safari. Vou demonstrar o app instalado no meu celular."
+
+---
+
+## ANTES DE COLAR — ter em mãos
+1. **Logo do ICL** em SVG ou PNG de fundo transparente (subir no Replit e pedir ao agente para usar no lugar do placeholder).
+2. **Extrato dos dados abertos da ANP** (revendedores autorizados) filtrado para SP capital + eixo Anhanguera/Bandeirantes, em CSV — para a Iteração 3.
+3. Nome fictício aprovado para a associada do dashboard demo (evitar marca real sem autorização).
+
+## NOTA DE ARQUITETURA (para você, não para o Replit)
+O protótipo é web mobile-first com PWA de propósito: permite a tela dividida B2B2C que o briefing pede, roda em projetor e instala no celular para a demo. O caminho para App Store e Play Store na versão de produção é empacotar com **Capacitor** (reaproveita ~90% deste código) ou migrar a casca para **React Native/Expo** consumindo a mesma API — decisão para depois da validação com o cliente, não antes.
