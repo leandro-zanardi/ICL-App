@@ -24,6 +24,7 @@ const USER_AGENT = "ICL-AppPrototipo/1.0 (+contato)";
 const UM_SEGUNDO_MS = 1_000;
 const DETALHE_FRESCO_MS = 7 * 24 * 60 * 60 * 1_000;
 const MAX_FALHAS_SEGUIDAS = 5;
+const SINCRONIZACAO_AUTOMATICA_HABILITADA = process.env["ANP_AUTO_SYNC_ENABLED"] === "true";
 const prioridadesCnpj = new Set<string>();
 let proximaPaginaEm = 0;
 let filaDeRede: Promise<void> = Promise.resolve();
@@ -599,6 +600,10 @@ export async function listarSincronizacoesAnp(): Promise<Array<typeof anpSincron
 }
 
 export function agendarSincronizacaoAnp(): void {
+  if (!SINCRONIZACAO_AUTOMATICA_HABILITADA) {
+    logger.info("Sincronização automática da ANP desabilitada; retomada somente por ação administrativa");
+    return;
+  }
   if (scheduler) return;
   scheduler = setInterval(() => {
     iniciarSincronizacaoAnp([...MUNICIPIOS_ANP]).catch((erro: unknown) =>
