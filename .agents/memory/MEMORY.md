@@ -1,2 +1,3 @@
 - [Orval + zod/v4](orval-zod-v4.md) — Orval gera imports de 'zod' (v3); com zod/v4 no runtime o codegen precisa reescrever para 'zod/v4' ou o typecheck quebra.
 - [Drizzle push com pgSchema](drizzle-schema-filter.md) — drizzle-kit push ignora schemas não-public silenciosamente ("No changes detected") sem schemaFilter na config.
+- [Primeira publicação e banco de prod](replit-first-publish-db.md) — banco de produção só nasce após publish OK; boot que espera o banco antes do listen trava a publicação (porta nunca abre).

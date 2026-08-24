@@ -53,6 +53,9 @@ Protótipo demo (Fase 1) para o Instituto Combustível Legal: app de confiança 
 
 ## Gotchas
 
+- O boot da API NUNCA deve bloquear o `listen` esperando o banco: na primeira publicação, o banco de produção só é criado depois que o healthcheck passa. O seed roda em segundo plano com novas tentativas (`aplicarSeedComRetentativas` em `artifacts/api-server/src/index.ts`); manter esse padrão
+- Healthcheck de produção é `GET /api/healthz` (configurado no artifact.toml da API) e não pode depender do banco
+
 - Após editar `openapi.yaml` ou o schema do DB: rodar codegen e/ou `typecheck:libs` para atualizar os dist das libs, senão o typecheck do api-server acusa exports inexistentes
 - O codegen do Orval emite `from 'zod'` mas o projeto usa `zod/v4` — o script `codegen` já corrige via sed; não remover
 - `drizzle.config.ts` precisa de `schemaFilter: ["public", "app", "analytics"]` — sem isso o push diz "No changes detected" e não cria as tabelas
