@@ -55,12 +55,20 @@ function MapUpdater({ center, onPan }: { center: { lat: number, lng: number }, o
 
 export default function Mapa() {
   const { activePosition } = useLocationContext();
-  const [searchCenter, setSearchCenter] = useState(activePosition);
-  const [mapCenter, setMapCenter] = useState(activePosition);
+  const savedMap = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('cl_last_map');
+      return raw ? JSON.parse(raw) as { searchCenter: { lat: number; lng: number }; mapCenter: { lat: number; lng: number }; raio?: number; somenteSelo?: boolean } : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const [searchCenter, setSearchCenter] = useState(savedMap?.searchCenter ?? activePosition);
+  const [mapCenter, setMapCenter] = useState(savedMap?.mapCenter ?? activePosition);
   const [isPanning, setIsPanning] = useState(false);
   
-  const [raio, setRaio] = useState<number>(10);
-  const [somenteSelo, setSomenteSelo] = useState(false);
+  const [raio, setRaio] = useState<number>(savedMap?.raio ?? 10);
+  const [somenteSelo, setSomenteSelo] = useState(savedMap?.somenteSelo ?? false);
   const [q, setQ] = useState('');
   
   const [selectedPostoId, setSelectedPostoId] = useState<string | null>(null);
@@ -76,6 +84,10 @@ export default function Mapa() {
     const onboarded = localStorage.getItem('cl_onboarded');
     if (!onboarded) setShowOnboarding(true);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cl_last_map', JSON.stringify({ searchCenter, mapCenter, raio, somenteSelo }));
+  }, [searchCenter, mapCenter, raio, somenteSelo]);
 
   const finishOnboarding = () => {
     localStorage.setItem('cl_onboarded', 'true');
