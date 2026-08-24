@@ -1,0 +1,59 @@
+PROMPT (colar no Replit Agent)
+
+Rodamos um teste de QA completo no deploy publicado (iclapp.replit.app) simulando um motorista em São Paulo. Corrija os problemas abaixo na ordem de prioridade. Não refatore nada fora do escopo listado.
+
+P0.1 — Backend de produção fora do ar (bloqueia tudo)
+
+Evidência coletada no deploy: GET /api/postos → 500, POST /api/rotas → 500, POST /api/conta/verificar → 500, POST /api/denuncias → 500, GET /api/apresentacao/dashboard → 500. Só respondem 200: POST /api/conta/otp e GET /api/apresentacao/stream (justamente as rotas que não tocam o banco). O corpo do erro é a página HTML padrão do Express ("Internal Server Error"). Diagnóstico provável: o banco do deployment não foi migrado/seedado (funciona no workspace, não no deploy). Corrigir:
+
+Verifique os logs do deployment e confirme a causa raiz real.
+Garanta que migração + seed rodem no processo de deploy (script de release/entrypoint), idempotentes.
+Adicione GET /api/health retornando { ok, db: true/false, postos_count } para diagnóstico em 5 segundos.
+Adicione um error handler JSON no Express: nunca devolver HTML de erro para o cliente; responder { erro: "mensagem em pt-BR" } com o status correto, logando o stack só no servidor. Aceite: /api/health verde no deploy; mapa mostra pins de postos na região de São Paulo; painel /apresentacao deixa de exibir "Nenhum dado disponível".
+P0.2 — Congelamento da interface por 30–50 segundos
+
+Reproduzido 5 vezes no deploy: ao abrir Rota, Benefícios, Denunciar, ao enviar denúncia e ao recarregar a home com sessão salva, a main thread trava por 30–50s (a tela não responde, parece que o app morreu; num celular real o sistema mataria o app). Corrigir:
+
+Profile o mount dessas telas e encontre o trabalho síncrono pesado (suspeitos: processamento de dados/turf no mount, geração síncrona de algo, loop de efeito com dependências erradas, reconexão de EventSource).
+Mova qualquer computação pesada para lazy/async (dynamic import, requestIdleCallback, ou Web Worker) e garanta troca de aba instantânea (< 200ms). Aceite: alternar entre as 4 abas 10 vezes seguidas sem nenhum travamento perceptível; recarregar a home com sessão salva renderiza em < 3s.
+P1.1 — Falha silenciosa no mapa + contador enganoso
+
+Com a API fora, o mapa fica vazio sem nenhuma mensagem, e o chip mostra "0 verificados" — o usuário entende que não existe posto verificado em São Paulo, o que é péssimo para o ICL. A tela de Rota já tem estado de erro ("Não foi possível calcular a rota. Tente novamente.") — o mapa não. Corrigir: distinguir erro de vazio. Em erro de API: banner no topo do mapa "Não conseguimos carregar os postos agora. Tentar novamente." com botão de retry, e o chip contador não deve exibir número. Em resposta vazia real: "Nenhum posto verificado neste raio — amplie a busca."
+
+P1.2 — Erros vazando HTML bruto e culpando o usuário
+
+No OTP, o servidor respondeu 500 e o toast disse "Código inválido" com o corpo HTTP 500 : <!DOCTYPE html>... dentro. Na denúncia, a tela de falha também imprime o HTML do Express. Corrigir: com o error handler JSON do P0.1, mapear mensagens: 4xx de validação → "Código inválido, confira e tente de novo"; 5xx → "Nosso sistema está instável, tente em instantes" (nunca sugerir erro do usuário). Proibido renderizar corpo bruto de resposta em qualquer tela ou toast.
+
+P1.3 — Busca sem debounce, resultados duplicados e Enter morto
+
+Digitar "Avenida Paulista" disparou 14 requests a /api/geo/buscar (1 por tecla), quase todas 503 (rate-limit do geocoder — em produção isso derruba/bane o serviço). O dropdown mostrou o mesmo resultado 3x ("Avenida Paulista, Consolação, São Paulo") e Enter não seleciona nada. Corrigir: debounce de 400ms + cancelamento da request anterior (AbortController) + mínimo de 3 caracteres; deduplicar resultados por display_name+lat/lng; Enter seleciona o primeiro item; cache simples das últimas consultas. Aplicar nos dois campos (mapa e rota). Após selecionar no mapa, manter o texto escolhido no campo em vez de limpá-lo.
+
+P1.4 — Prompt de instalação PWA atropelando o onboarding
+
+O card "Tenha o Combustível Legal no celular" aparece por cima do onboarding, cobrindo o botão Continuar, e reaparece logo depois de ser fechado (na transição para o mapa). Corrigir: nunca exibir durante onboarding/modais; exibir só após a primeira interação significativa (ex.: primeiro posto visualizado); respeitar o dismiss por sessão (persistir); posicionar dentro do frame do app.
+
+P2 — Polimentos (fazer após P0/P1)
+Onboarding tela 2 incoerente: título "Sua Localização" + texto sobre GPS, mas CTA "Entrar com celular". Separar: CTA primário "Permitir localização", secundário "Agora não"; login não pertence a essa tela.
+Login só por celular: o produto pede telefone ou e-mail — adicionar a alternativa de e-mail no mesmo modal.
+Chips do mapa: esconder scrollbar (scrollbar-width: none / ::-webkit-scrollbar) e tirar o contador do overflow — "N postos verificados perto de você" deve ser sempre visível (elemento próprio abaixo da busca), não o último chip cortado.
+Máscara e validação do celular: aplicar máscara (11) 99999-9999 durante a digitação e validar DDD + 9 dígitos antes de habilitar Continuar.
+Card offline com copy invertida: na falha da denúncia aparece "Conexão disponível" com ícone de sem-wifi. Trocar por "Sem conexão" e só exibir quando navigator.onLine === false; falha 5xx com internet usa a mensagem de sistema instável.
+Safe area: nas telas internas (Rota/Benefícios/Denunciar) o notch do frame cobre o header — aplicar padding-top de safe area no header.
+Sheets maiores que o frame: os bottom sheets (onboarding, login) renderizam mais largos que o celular no desktop — confiná-los ao container do frame.
+Zoom bloqueado: remover maximum-scale=1.0, user-scalable=no da meta viewport (acessibilidade).
+Atribuição OSM: exibir "© OpenStreetMap contributors" visível (exigência da licença), sem ficar coberta pelo botão "Buscar nesta área" nem pelo canto arredondado do frame.
+Posição simulada transparente: quando usar o fallback de localização, mostrar chip discreto "Região aproximada: Av. Paulista — ajustar".
+Cores das categorias de denúncia: ícones em azul/verde/roxo aleatórios — usar a paleta do app (navy + âmbar da chama).
+"100% anônima": trocar por "Sua denúncia é anônima" e garantir que o payload não carrega identificadores do usuário.
+Chamada duplicada: /api/postos dispara 2x com os mesmos parâmetros no load — deduplicar (efeito duplicado do StrictMode ou falta de cache).
+Roteiro de reteste (executar ao final e me reportar o resultado de cada passo)
+/api/health → ok:true, postos_count > 0.
+Home limpa → onboarding (sem prompt de PWA) → Pular → mapa com pins e contador real.
+Toggle "Só verificados" filtra; trocar raio atualiza.
+Buscar "Avenida Paulista" → ≤ 3 requests, sem duplicados, Enter seleciona.
+Tocar num posto com selo → ficha abre com explicação do selo e botão de rota (deep link Google Maps).
+Rota "Minha localização" → "Campinas" → traçado + postos no corredor em ordem.
+Benefícios → celular 11 99999-0000 → OTP 1234 → carteira abre; check-in em posto com selo credita pontos; resgate gera cupom com QR.
+Denúncia de teste → confirmação de envio (sem HTML de erro).
+/apresentacao → cada ação do app refletindo no painel em < 2s.
+Alternar as 4 abas 10x e recarregar a home logada — zero travamentos.
