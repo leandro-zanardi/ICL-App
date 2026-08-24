@@ -9,6 +9,7 @@ import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { LocationProvider } from '@/contexts/LocationContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { RequireAuthProvider } from '@/contexts/RequireAuthContext';
+import { DenunciaQueueProvider } from '@/contexts/DenunciaQueueContext';
 import { ConsumerLayout } from '@/components/Layout';
 
 import Mapa from '@/pages/Mapa';
@@ -49,12 +50,14 @@ function App() {
       <AuthProvider>
         <LocationProvider>
           <RequireAuthProvider>
-            <TooltipProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-                <Router />
-              </WouterRouter>
-              <Toaster />
-            </TooltipProvider>
+            <DenunciaQueueProvider>
+              <TooltipProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+                  <Router />
+                </WouterRouter>
+                <Toaster />
+              </TooltipProvider>
+            </DenunciaQueueProvider>
           </RequireAuthProvider>
         </LocationProvider>
       </AuthProvider>
