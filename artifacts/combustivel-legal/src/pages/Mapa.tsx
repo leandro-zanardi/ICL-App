@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocationContext } from '@/contexts/LocationContext';
 import { useListarPostos, useBuscarEndereco, getBuscarEnderecoQueryKey, getListarPostosQueryKey } from '@workspace/api-client-react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
@@ -55,7 +55,8 @@ function MapUpdater({ center, onPan }: { center: { lat: number, lng: number }, o
 }
 
 export default function Mapa() {
-  const { activePosition } = useLocationContext();
+  const { activePosition, isUsingApproximateLocation, requestLocation } = useLocationContext();
+  const hasAppliedDeviceLocation = useRef(false);
   const savedMap = useMemo(() => {
     try {
       const raw = localStorage.getItem('cl_last_map');
@@ -87,6 +88,17 @@ export default function Mapa() {
     const onboarded = localStorage.getItem('cl_onboarded');
     if (!onboarded) setShowOnboarding(true);
   }, []);
+
+  useEffect(() => {
+    if (isUsingApproximateLocation || hasAppliedDeviceLocation.current) return;
+
+    // A localização confirmada passa a ser a origem da consulta e do mapa.
+    // Após isso, preservamos ajustes manuais e o último mapa salvo.
+    hasAppliedDeviceLocation.current = true;
+    setSearchCenter(activePosition);
+    setMapCenter(activePosition);
+    setIsPanning(false);
+  }, [activePosition, isUsingApproximateLocation]);
 
   useEffect(() => {
     const saveMap = window.setTimeout(() => {
@@ -203,7 +215,25 @@ export default function Mapa() {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {isUsingApproximateLocation && (
+            <button
+              type="button"
+              onClick={requestLocation}
+              className="mb-3 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900"
+            >
+              Região aproximada: Av. Paulista — ajustar
+            </button>
+          )}
+
+          <p className="mb-2 text-xs font-semibold text-primary">
+            {isPostosLoading
+              ? 'Carregando postos verificados perto de você…'
+              : isPostosError
+                ? 'Postos verificados indisponíveis no momento'
+                : `${postosSelo} ${postosSelo === 1 ? 'posto verificado' : 'postos verificados'} perto de você`}
+          </p>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           <button 
             onClick={() => setSomenteSelo(!somenteSelo)}
             className={cn(
@@ -230,12 +260,6 @@ export default function Mapa() {
             ))}
           </div>
 
-          {!isPostosError && !isPostosLoading && (
-            <div className="shrink-0 ml-auto bg-orange-50 border border-orange-100 text-orange-800 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-flame-gradient"></span>
-              {postosSelo} {postosSelo === 1 ? 'verificado' : 'verificados'}
-            </div>
-          )}
         </div>
       </div>
 
@@ -244,6 +268,7 @@ export default function Mapa() {
           center={[activePosition.lat, activePosition.lng]} 
           zoom={13} 
           zoomControl={false}
+          attributionControl={false}
           className="w-full h-full"
         >
           <TileLayer
@@ -270,6 +295,9 @@ export default function Mapa() {
             />
           ))}
         </MapContainer>
+        <div className="pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom)+66px)] left-2 z-[400] rounded bg-white/90 px-1.5 py-1 text-[10px] text-slate-600 shadow-sm">
+          © OpenStreetMap contributors
+        </div>
 
         {isPostosLoading && (
           <div className="absolute inset-x-4 top-32 z-[400] rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
@@ -361,15 +389,14 @@ export default function Mapa() {
                 <Button 
                   className="w-full h-12 text-md font-bold bg-primary" 
                   onClick={() => {
-                    requireAuth(() => finishOnboarding());
-                    // if they skip auth, it closes both, but requireAuth handles that via success callback or if they just close.
-                    // Actually, if we just want them to login optionally:
+                    requestLocation();
+                    finishOnboarding();
                   }}
                 >
-                  Entrar com celular
+                  Permitir localização
                 </Button>
                 <Button variant="ghost" className="w-full text-slate-500" onClick={finishOnboarding}>
-                  Entrar depois
+                  Agora não
                 </Button>
               </div>
             </div>

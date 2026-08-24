@@ -105,10 +105,18 @@ export default function DenunciarPage() {
               : 'Salvamos sua denúncia neste aparelho. Ela será enviada automaticamente assim que a conexão voltar.'}
           </p>
           <div className="w-full max-w-sm bg-amber-50 border border-amber-200 rounded-xl p-4 text-left flex gap-3 mb-6">
-            <WifiOff className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            {isOnline ? (
+              <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            ) : (
+              <WifiOff className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            )}
             <div className="text-sm text-amber-900">
-              <strong>{isOnline ? 'Conexão disponível' : 'Você está sem conexão'}</strong>
-              <div className="mt-1 text-amber-800">Não feche o app: a fila continua salva mesmo se você sair desta tela.</div>
+              <strong>{isOnline ? 'Nosso sistema está instável' : 'Sem conexão'}</strong>
+              <div className="mt-1 text-amber-800">
+                {isOnline
+                  ? 'Não conseguimos enviar agora. Tente novamente em instantes.'
+                  : 'A fila continua salva neste aparelho e será enviada quando a conexão voltar.'}
+              </div>
             </div>
           </div>
           {pending?.status === 'error' && (
@@ -179,7 +187,7 @@ export default function DenunciarPage() {
             Viu algo errado?
           </h2>
           <p className="text-primary-foreground/70 text-sm">
-            Sua denúncia é 100% anônima e nos ajuda a manter um mercado mais justo e seguro.
+            Sua denúncia é anônima e nos ajuda a manter um mercado mais justo e seguro.
           </p>
         </div>
 
@@ -223,25 +231,25 @@ export default function DenunciarPage() {
               <RadioCard 
                 selected={categoria === 'qualidade_combustivel'} 
                 onClick={() => setCategoria('qualidade_combustivel')}
-                icon={<Droplet className="w-6 h-6 mb-2 text-blue-500" />}
+                icon={<Droplet className="w-6 h-6 mb-2 text-primary" />}
                 label="Qualidade do Combustível"
               />
               <RadioCard 
                 selected={categoria === 'volume_bomba'} 
                 onClick={() => setCategoria('volume_bomba')}
-                icon={<Hash className="w-6 h-6 mb-2 text-green-500" />}
+                icon={<Hash className="w-6 h-6 mb-2 text-amber-500" />}
                 label="Volume da Bomba"
               />
               <RadioCard 
                 selected={categoria === 'posto_clone'} 
                 onClick={() => setCategoria('posto_clone')}
-                icon={<Copy className="w-6 h-6 mb-2 text-purple-500" />}
+                icon={<Copy className="w-6 h-6 mb-2 text-primary" />}
                 label="Suspeita de Posto Clone"
               />
               <RadioCard 
                 selected={categoria === 'outra'} 
                 onClick={() => setCategoria('outra')}
-                icon={<AlertTriangle className="w-6 h-6 mb-2 text-slate-500" />}
+                icon={<AlertTriangle className="w-6 h-6 mb-2 text-amber-500" />}
                 label="Outra Irregularidade"
               />
             </div>

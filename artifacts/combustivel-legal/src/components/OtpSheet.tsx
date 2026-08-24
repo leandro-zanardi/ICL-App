@@ -8,8 +8,26 @@ import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 
+type ContactMode = 'phone' | 'email';
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits ? `(${digits}` : '';
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function isValidPhone(value: string) {
+  return /^\([1-9]\d\) 9\d{4}-\d{4}$/.test(value);
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+}
+
 export function OtpSheet({ isOpen, onOpenChange, onSuccess }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onSuccess?: () => void }) {
   const [step, setStep] = useState<1 | 2>(1);
+  const [contactMode, setContactMode] = useState<ContactMode>('phone');
   const [contato, setContato] = useState('');
   const [codigo, setCodigo] = useState('');
   const [helperText, setHelperText] = useState('');
@@ -23,6 +41,7 @@ export function OtpSheet({ isOpen, onOpenChange, onSuccess }: { isOpen: boolean,
   useEffect(() => {
     if (isOpen) {
       setStep(1);
+      setContactMode('phone');
       setContato('');
       setCodigo('');
       setHelperText('');
@@ -31,7 +50,7 @@ export function OtpSheet({ isOpen, onOpenChange, onSuccess }: { isOpen: boolean,
 
   const handleEnviar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (contato.length < 5) return;
+    if (!isValidContact) return;
     
     enviarOtp.mutate({ data: { contato } }, {
       onSuccess: (data) => {
@@ -43,6 +62,8 @@ export function OtpSheet({ isOpen, onOpenChange, onSuccess }: { isOpen: boolean,
       }
     });
   };
+
+  const isValidContact = contactMode === 'phone' ? isValidPhone(contato) : isValidEmail(contato);
 
   const handleVerificar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,25 +90,58 @@ export function OtpSheet({ isOpen, onOpenChange, onSuccess }: { isOpen: boolean,
             {step === 1 ? 'Entrar' : 'Confirmar Código'}
           </SheetTitle>
           <SheetDescription>
-            {step === 1 ? 'Use seu celular para acessar sua carteira de benefícios.' : 'Digite o código que enviamos para você.'}
+            {step === 1 ? 'Use seu celular ou e-mail para acessar sua carteira de benefícios.' : 'Digite o código que enviamos para você.'}
           </SheetDescription>
         </SheetHeader>
 
         {step === 1 ? (
           <form onSubmit={handleEnviar} className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1" role="group" aria-label="Tipo de contato">
+              <button
+                type="button"
+                aria-pressed={contactMode === 'phone'}
+                onClick={() => {
+                  setContactMode('phone');
+                  setContato('');
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${contactMode === 'phone' ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}
+              >
+                Celular
+              </button>
+              <button
+                type="button"
+                aria-pressed={contactMode === 'email'}
+                onClick={() => {
+                  setContactMode('email');
+                  setContato('');
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${contactMode === 'email' ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}
+              >
+                E-mail
+              </button>
+            </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Celular</label>
+              <label htmlFor="otp-contact" className="text-sm font-medium text-slate-700">
+                {contactMode === 'phone' ? 'Celular' : 'E-mail'}
+              </label>
               <Input
+                id="otp-contact"
                 type="text"
-                placeholder="(11) 99999-9999"
+                inputMode={contactMode === 'phone' ? 'tel' : 'email'}
+                placeholder={contactMode === 'phone' ? '(11) 99999-9999' : 'voce@exemplo.com'}
                 value={contato}
-                onChange={(e) => setContato(e.target.value)}
+                onChange={(e) => setContato(contactMode === 'phone' ? formatPhone(e.target.value) : e.target.value)}
                 disabled={enviarOtp.isPending}
                 className="h-12 text-lg"
                 autoFocus
               />
+              {contato.length > 0 && !isValidContact && (
+                <p className="text-xs text-red-600">
+                  {contactMode === 'phone' ? 'Informe um DDD e um celular com 9 dígitos.' : 'Informe um e-mail válido.'}
+                </p>
+              )}
             </div>
-            <Button type="submit" size="lg" className="w-full text-md font-bold bg-primary hover:bg-primary/90" disabled={enviarOtp.isPending || contato.length < 5}>
+            <Button type="submit" size="lg" className="w-full text-md font-bold bg-primary hover:bg-primary/90" disabled={enviarOtp.isPending || !isValidContact}>
               {enviarOtp.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Continuar'}
             </Button>
             <Button type="button" variant="ghost" className="w-full text-slate-500" onClick={() => onOpenChange(false)}>

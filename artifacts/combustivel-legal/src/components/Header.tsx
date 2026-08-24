@@ -19,7 +19,7 @@ export function Header({ title, transparent = false }: { title?: string, transpa
   }, [clicks]);
 
   return (
-    <div className={cn("px-4 py-3 flex items-center justify-between z-40 relative", transparent ? "bg-transparent" : "bg-white border-b border-slate-100")}>
+    <div className={cn("px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:pt-9 flex items-center justify-between z-40 relative", transparent ? "bg-transparent" : "bg-white border-b border-slate-100")}>
       <img 
         src={logoUrl} 
         alt="Instituto Combustível Legal" 

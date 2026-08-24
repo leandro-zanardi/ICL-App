@@ -3,3 +3,4 @@
 - [Primeira publicação e banco de prod](replit-first-publish-db.md) — banco de produção só nasce após publish OK; boot que espera o banco antes do listen trava a publicação (porta nunca abre).
 - [Playwright no ambiente Replit](playwright-system-deps.md) — Chromium precisa de bibliotecas gráficas/áudio declaradas no ambiente para o E2E iniciar.
 - [Recuperação de rede no mapa PWA](pwa-map-network-recovery.md) — worker e consultas do mapa precisam falhar em prazo finito para expor recuperação, nunca ficarem em espera silenciosa.
+- [Isolamento de rede dos testes](test-browser-network-isolation.md) — o navegador de teste não alcança servidores temporários iniciados pelo shell; valide por artefato ou workflow acessível.

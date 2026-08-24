@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, ReactNode } from 'react';
 
 export type Position = { lat: number; lng: number };
 
@@ -8,6 +8,8 @@ type LocationContextType = {
   demoPosition: Position | null;
   setDemoPosition: (pos: Position | null) => void;
   activePosition: Position; // Either demo or real, fallback to Av Paulista
+  isUsingApproximateLocation: boolean;
+  requestLocation: () => void;
 };
 
 const DEFAULT_POSITION: Position = { lat: -23.5614, lng: -46.6559 }; // Av. Paulista
@@ -19,13 +21,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [positionError, setPositionError] = useState<string | null>(null);
   const [demoPosition, setDemoPosition] = useState<Position | null>(null);
 
-  useEffect(() => {
+  const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setPositionError('Geolocalização não suportada');
       return;
     }
-    
-    // First fast try, then watch
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
@@ -36,22 +37,10 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       },
       { timeout: 10000, maximumAge: 60000 }
     );
-
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setPositionError(null);
-      },
-      (err) => {
-        setPositionError(err.message);
-      },
-      { enableHighAccuracy: true }
-    );
-
-    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   const activePosition = demoPosition || position || DEFAULT_POSITION;
+  const isUsingApproximateLocation = !demoPosition && !position;
 
   return (
     <LocationContext.Provider
@@ -61,6 +50,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         demoPosition,
         setDemoPosition,
         activePosition,
+        isUsingApproximateLocation,
+        requestLocation,
       }}
     >
       {children}

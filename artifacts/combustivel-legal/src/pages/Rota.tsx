@@ -172,6 +172,7 @@ export default function RotaPage() {
               <MapContainer 
                 bounds={mapBounds || undefined}
                 zoomControl={false}
+                  attributionControl={false}
                 className="w-full h-full"
               >
                 <TileLayer
@@ -190,6 +191,9 @@ export default function RotaPage() {
                   />
                 ))}
               </MapContainer>
+                <div className="pointer-events-none absolute bottom-2 left-2 z-[400] rounded bg-white/90 px-1.5 py-1 text-[10px] text-slate-600 shadow-sm">
+                  © OpenStreetMap contributors
+                </div>
             </div>
             
             <div className="flex-1 bg-slate-50 overflow-y-auto no-scrollbar pb-24">
