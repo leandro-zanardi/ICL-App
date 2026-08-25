@@ -488,7 +488,7 @@ components:
     PostoResumo:
       type: object
       required:
-        [id, nome_fantasia, bandeira, endereco, municipio, uf, lat, lng, tier, score, distancia_km, rede_associada]
+        [id, nome_fantasia, bandeira, endereco, municipio, uf, lat, lng, tier, score, distancia_km, rede_associada, nota_anp]
       properties:
         id: { type: string }
         nome_fantasia: { type: string }
@@ -502,6 +502,7 @@ components:
         score: { type: integer }
         distancia_km: { type: number }
         rede_associada: { type: boolean }
+        nota_anp: { type: ["integer", "null"], minimum: 0, maximum: 5 }
     SeloCriterios:
       type: object
       required: [situacao_anp_ativa, sem_autuacoes_24m, qualidade_conforme, bandeira_consistente]

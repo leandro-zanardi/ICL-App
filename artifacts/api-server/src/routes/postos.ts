@@ -78,6 +78,7 @@ router.get("/postos", async (req, res) => {
       score: posto.score,
       distancia_km: Math.round(distanciaKm * 10) / 10,
       rede_associada: isRedeAssociada(posto.bandeira),
+       nota_anp: posto.notaAnpColetada,
     }));
 
   res.json(resultado);
