@@ -85,20 +85,29 @@ router.post("/admin/importar", async (req, res) => {
     const idExistente = cnpjDigitos ? porCnpj.get(cnpjDigitos) : undefined;
 
     if (idExistente) {
+      const atualizacao: Partial<typeof postos.$inferInsert> = {
+        razaoSocial: linha.razaoSocial,
+        nomeFantasia: linha.nomeFantasia,
+        bandeira: linha.bandeira,
+        endereco: linha.endereco,
+        municipio: linha.municipio,
+        cnpj: cnpjDigitos,
+        situacao: linha.situacaoAnp,
+        situacaoAnp: linha.situacaoAnp,
+        sincronizadoEm: new Date(),
+        atualizadoEm: new Date(),
+      };
+      if (linha.dataAutorizacao) atualizacao.dataAutorizacaoAnp = linha.dataAutorizacao;
+      if (linha.codigoInstalacaoAnp !== undefined) atualizacao.codigoInstalacaoAnp = linha.codigoInstalacaoAnp;
+      if (linha.distribuidora !== undefined) atualizacao.distribuidora = linha.distribuidora;
+      if (linha.tempoAutorizacaoAnos !== undefined) {
+        atualizacao.tempoAutorizacaoAnos = linha.tempoAutorizacaoAnos;
+      }
+      if (linha.notaAnp !== undefined) atualizacao.notaAnpColetada = linha.notaAnp;
+
       await db
         .update(postos)
-        .set({
-          razaoSocial: linha.razaoSocial,
-          nomeFantasia: linha.nomeFantasia,
-          bandeira: linha.bandeira,
-          endereco: linha.endereco,
-          municipio: linha.municipio,
-          cnpj: cnpjDigitos,
-          situacaoAnp: linha.situacaoAnp,
-          dataAutorizacaoAnp: linha.dataAutorizacao,
-          sincronizadoEm: new Date(),
-          atualizadoEm: new Date(),
-        })
+        .set(atualizacao)
         .where(eq(postos.id, idExistente));
       atualizadas++;
     } else {
@@ -112,6 +121,11 @@ router.post("/admin/importar", async (req, res) => {
         uf: linha.uf,
         lat: coords[0],
         lng: coords[1],
+        codigoInstalacaoAnp: linha.codigoInstalacaoAnp ?? null,
+        distribuidora: linha.distribuidora ?? null,
+        tempoAutorizacaoAnos: linha.tempoAutorizacaoAnos ?? null,
+        notaAnpColetada: linha.notaAnp ?? null,
+        situacao: linha.situacaoAnp,
         situacaoAnp: linha.situacaoAnp,
         dataAutorizacaoAnp: linha.dataAutorizacao,
         sincronizadoEm: new Date(),

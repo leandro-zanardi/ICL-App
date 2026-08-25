@@ -387,7 +387,7 @@ paths:
     post:
       operationId: importarCsvAnp
       tags: [admin]
-      summary: Importa o CSV oficial da ANP e substitui o seed de demonstração
+      summary: Importa arquivo CSV ou JSON oficial da ANP e atualiza a base de postos
       requestBody:
         required: true
         content:
@@ -783,7 +783,7 @@ components:
       properties:
         csv:
           type: string
-          description: Conteúdo bruto do CSV oficial da ANP (lido no navegador)
+           description: Conteúdo bruto do arquivo CSV ou JSON oficial da ANP (lido no navegador)
     ImportacaoRelatorio:
       type: object
       required:

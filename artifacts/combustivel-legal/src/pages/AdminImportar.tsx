@@ -123,16 +123,16 @@ export default function AdminImportarPage() {
             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-primary">
               <FileUp className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-bold font-display text-primary mb-2">Importar base ANP (CSV)</h2>
+             <h2 className="text-2xl font-bold font-display text-primary mb-2">Importar base ANP (CSV ou JSON)</h2>
             <p className="text-slate-500 mb-8 max-w-md mx-auto">
-              Selecione o arquivo CSV baixado do painel oficial para atualizar os registros de postos verificados.
+               Selecione o arquivo CSV ou JSON baixado do painel oficial para atualizar os registros de postos verificados.
               <br/>
               <span className="text-xs font-semibold bg-slate-100 px-2 py-1 rounded mt-2 inline-block">Fonte oficial: anpcomvcpostos.anp.gov.br</span>
             </p>
 
             <input 
               type="file" 
-              accept=".csv" 
+               accept=".csv,.json"
               className="hidden" 
               ref={fileInputRef}
               onChange={handleFileChange}
@@ -140,7 +140,7 @@ export default function AdminImportarPage() {
 
             {!file ? (
               <Button size="lg" className="h-14 px-8 text-lg font-bold" onClick={() => fileInputRef.current?.click()}>
-                Selecionar Arquivo CSV
+                 Selecionar Arquivo CSV ou JSON
               </Button>
             ) : (
               <div className="w-full max-w-md space-y-4">

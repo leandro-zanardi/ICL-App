@@ -8,6 +8,8 @@ export interface LinhaAnp {
   razaoSocial: string;
   nomeFantasia: string;
   bandeira: string;
+  codigoInstalacaoAnp?: string | null;
+  distribuidora?: string | null;
   endereco: string;
   municipio: string;
   uf: string;
@@ -15,6 +17,8 @@ export interface LinhaAnp {
   lng: number | null;
   situacaoAnp: string;
   dataAutorizacao: string | null;
+  tempoAutorizacaoAnos?: number | null;
+  notaAnp?: number | null;
 }
 
 export interface ResultadoParse {
@@ -73,7 +77,96 @@ function acharColuna(headers: string[], candidatos: string[]): number {
   return -1;
 }
 
+function parseRegistroJson(value: unknown, index: number): LinhaAnp | string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return `Registro ${index + 1}: formato inválido — ignorado.`;
+  }
+
+  const registro = value as Record<string, unknown>;
+  const texto = (campo: string): string =>
+    typeof registro[campo] === "string" ? registro[campo].trim() : "";
+  const cnpj = texto("cnpj").replace(/\D/g, "");
+  const razaoSocial = texto("razao_social");
+  const logradouro = texto("logradouro");
+  const numero = texto("numero");
+  const bairro = texto("bairro");
+  const municipio = texto("municipio");
+  const uf = texto("uf").toUpperCase().slice(0, 2);
+  const distribuidora = texto("distribuidora") || null;
+  const bandeira = distribuidora || (registro.bandeira_branca === true ? "Bandeira Branca" : "");
+  const situacaoAnp = texto("situacao");
+  const lat = typeof registro.lat === "number" ? registro.lat : null;
+  const lng = typeof registro.lng === "number" ? registro.lng : null;
+  const notaAnp = typeof registro.nota_anp === "number" ? registro.nota_anp : null;
+  const tempoAutorizacaoAnos =
+    typeof registro.tempo_autorizacao_anos === "number" ? registro.tempo_autorizacao_anos : null;
+
+  if (
+    !/^\d{14}$/.test(cnpj) ||
+    !razaoSocial ||
+    !bandeira ||
+    !logradouro ||
+    !municipio ||
+    !uf ||
+    !situacaoAnp ||
+    lat == null ||
+    lng == null
+  ) {
+    return `Registro ${index + 1}: campos cadastrais oficiais incompletos — ignorado.`;
+  }
+
+  if (notaAnp != null && (!Number.isInteger(notaAnp) || notaAnp < 0 || notaAnp > 5)) {
+    return `Registro ${index + 1}: nota ANP inválida — ignorado.`;
+  }
+
+  return {
+    cnpj,
+    razaoSocial,
+    nomeFantasia: razaoSocial,
+    bandeira,
+    codigoInstalacaoAnp: texto("cod_instalacao_anp") || null,
+    distribuidora,
+    endereco: [logradouro, numero ? `nº ${numero}` : "", bairro].filter(Boolean).join(" — "),
+    municipio,
+    uf,
+    lat,
+    lng,
+    situacaoAnp,
+    dataAutorizacao: null,
+    tempoAutorizacaoAnos,
+    notaAnp,
+  };
+}
+
+function parseJsonAnp(conteudo: string): ResultadoParse {
+  try {
+    const dados: unknown = JSON.parse(conteudo);
+    if (!Array.isArray(dados)) {
+      return { linhasLidas: 0, linhas: [], erros: ["A fonte JSON deve conter uma lista de postos."] };
+    }
+
+    const erros: string[] = [];
+    const linhas: LinhaAnp[] = [];
+    dados.forEach((registro, index) => {
+      const resultado = parseRegistroJson(registro, index);
+      if (typeof resultado === "string") {
+        if (erros.length < 15) erros.push(resultado);
+      } else {
+        linhas.push(resultado);
+      }
+    });
+    return { linhasLidas: dados.length, linhas, erros };
+  } catch {
+    return { linhasLidas: 0, linhas: [], erros: ["JSON inválido ou corrompido."] };
+  }
+}
+
 export function parseCsvAnp(csv: string): ResultadoParse {
+  const conteudo = csv.trim();
+  if (conteudo.startsWith("[") || conteudo.startsWith("{")) {
+    return parseJsonAnp(conteudo);
+  }
+
   const erros: string[] = [];
   const linhasBrutas = csv
     .replace(/^\uFEFF/, "")

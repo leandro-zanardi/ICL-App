@@ -28,3 +28,46 @@ test("reconhece o cabeçalho e os campos do CSV oficial da ANP", () => {
     },
   ]);
 });
+
+test("reconhece o recorte JSON do ANP Com Vc e preserva campos adicionais", () => {
+  const json = JSON.stringify([
+    {
+      cod_instalacao_anp: "55941",
+      cnpj: "59.692.921/0001-05",
+      razao_social: "POSTO JOAO JORGE LTDA",
+      logradouro: "AVENIDA JOAO JORGE",
+      numero: "330",
+      bairro: "VILA INDUSTRIAL",
+      municipio: "CAMPINAS",
+      uf: "SP",
+      lat: -22.91313667,
+      lng: -47.06373833,
+      distribuidora: "Vibra Energia S.A",
+      situacao: "EM OPERACAO",
+      tempo_autorizacao_anos: 25,
+      nota_anp: 0,
+    },
+  ]);
+
+  const resultado = parseCsvAnp(json);
+
+  assert.equal(resultado.linhasLidas, 1);
+  assert.deepEqual(resultado.erros, []);
+  assert.deepEqual(resultado.linhas[0], {
+    cnpj: "59692921000105",
+    razaoSocial: "POSTO JOAO JORGE LTDA",
+    nomeFantasia: "POSTO JOAO JORGE LTDA",
+    bandeira: "Vibra Energia S.A",
+    codigoInstalacaoAnp: "55941",
+    distribuidora: "Vibra Energia S.A",
+    endereco: "AVENIDA JOAO JORGE — nº 330 — VILA INDUSTRIAL",
+    municipio: "CAMPINAS",
+    uf: "SP",
+    lat: -22.91313667,
+    lng: -47.06373833,
+    situacaoAnp: "EM OPERACAO",
+    dataAutorizacao: null,
+    tempoAutorizacaoAnos: 25,
+    notaAnp: 0,
+  });
+});
