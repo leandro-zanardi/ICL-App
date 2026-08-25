@@ -31,10 +31,56 @@ const seloIconHtml = `<svg width="32" height="42" viewBox="0 0 32 42" fill="none
 </svg>`;
 const seloIcon = L.divIcon({ html: seloIconHtml, className: '', iconSize: [32, 42], iconAnchor: [16, 42] });
 
-const regularIconHtml = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.svg.org/2000/svg">
-  <circle cx="10" cy="10" r="8" fill="white" stroke="#94A3B8" stroke-width="4"/>
+const regularIconHtml = `<svg width="28" height="38" viewBox="0 0 28 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M14 1C6.82 1 1 6.82 1 14C1 23.08 14 37 14 37C14 37 27 23.08 27 14C27 6.82 21.18 1 14 1Z" fill="#64748B" stroke="white" stroke-width="2"/>
+  <circle cx="14" cy="14" r="5" fill="white"/>
 </svg>`;
-const regularIcon = L.divIcon({ html: regularIconHtml, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+const regularIcon = L.divIcon({ html: regularIconHtml, className: '', iconSize: [28, 38], iconAnchor: [14, 38] });
+
+type SavedMapState = {
+  searchCenter: { lat: number; lng: number };
+  mapCenter: { lat: number; lng: number };
+  raio?: number;
+  somenteSelo?: boolean;
+};
+
+function isValidPosition(value: unknown): value is { lat: number; lng: number } {
+  if (!value || typeof value !== 'object') return false;
+  const { lat, lng } = value as { lat?: unknown; lng?: unknown };
+  return (
+    typeof lat === 'number' &&
+    Number.isFinite(lat) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    typeof lng === 'number' &&
+    Number.isFinite(lng) &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+function readSavedMap(): SavedMapState | null {
+  try {
+    const raw = localStorage.getItem('cl_last_map');
+    if (!raw) return null;
+
+    const saved = JSON.parse(raw) as Partial<SavedMapState>;
+    if (!isValidPosition(saved.searchCenter) || !isValidPosition(saved.mapCenter)) {
+      localStorage.removeItem('cl_last_map');
+      return null;
+    }
+
+    return {
+      searchCenter: saved.searchCenter,
+      mapCenter: saved.mapCenter,
+      raio: [5, 10, 25].includes(saved.raio ?? 10) ? saved.raio : 10,
+      somenteSelo: saved.somenteSelo === true,
+    };
+  } catch {
+    localStorage.removeItem('cl_last_map');
+    return null;
+  }
+}
 
 // --- Helper Components ---
 function MapUpdater({ center, onPan }: { center: { lat: number, lng: number }, onPan: (lat: number, lng: number) => void }) {
@@ -57,14 +103,7 @@ function MapUpdater({ center, onPan }: { center: { lat: number, lng: number }, o
 export default function Mapa() {
   const { activePosition, isUsingApproximateLocation, requestLocation } = useLocationContext();
   const hasAppliedDeviceLocation = useRef(false);
-  const savedMap = useMemo(() => {
-    try {
-      const raw = localStorage.getItem('cl_last_map');
-      return raw ? JSON.parse(raw) as { searchCenter: { lat: number; lng: number }; mapCenter: { lat: number; lng: number }; raio?: number; somenteSelo?: boolean } : null;
-    } catch {
-      return null;
-    }
-  }, []);
+  const savedMap = useMemo(readSavedMap, []);
   const [searchCenter, setSearchCenter] = useState(savedMap?.searchCenter ?? activePosition);
   const [mapCenter, setMapCenter] = useState(savedMap?.mapCenter ?? activePosition);
   const [isPanning, setIsPanning] = useState(false);
@@ -153,6 +192,10 @@ export default function Mapa() {
     setIsPanning(false);
   };
 
+  const toggleSomenteSelo = () => {
+    setSomenteSelo((atual) => !atual);
+  };
+
   const uniqueAddresses = useMemo(() => {
     const seen = new Set<string>();
     return addresses.filter((address) => {
@@ -230,12 +273,14 @@ export default function Mapa() {
               ? 'Carregando postos verificados perto de você…'
               : isPostosError
                 ? 'Postos verificados indisponíveis no momento'
-                : `${postosSelo} ${postosSelo === 1 ? 'posto verificado' : 'postos verificados'} perto de você`}
+                : `${postos.length} ${postos.length === 1 ? 'posto no mapa' : 'postos no mapa'}${postosSelo > 0 ? ` · ${postosSelo} ${postosSelo === 1 ? 'verificado' : 'verificados'}` : ''}`}
           </p>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           <button 
-            onClick={() => setSomenteSelo(!somenteSelo)}
+            type="button"
+            aria-pressed={somenteSelo}
+            onClick={toggleSomenteSelo}
             className={cn(
               "shrink-0 px-4 py-2 rounded-full text-sm font-medium border flex items-center gap-2 transition-colors",
               somenteSelo ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200"

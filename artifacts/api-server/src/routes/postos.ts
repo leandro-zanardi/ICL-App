@@ -10,8 +10,25 @@ import { validar } from "../lib/validar";
 
 const router: IRouter = Router();
 
+function normalizarBooleanoDaQuery(valor: unknown): boolean | undefined | null {
+  if (valor === undefined) return undefined;
+  if (valor === true || valor === "true") return true;
+  if (valor === false || valor === "false") return false;
+  return null;
+}
+
 router.get("/postos", async (req, res) => {
-  const query = validar(ListarPostosQueryParams, req.query, res);
+  const somenteSelo = normalizarBooleanoDaQuery(req.query.somente_selo);
+  if (somenteSelo === null) {
+    res.status(400).json({ erro: 'Dados inválidos no campo "somente_selo".' });
+    return;
+  }
+
+  const query = validar(
+    ListarPostosQueryParams,
+    { ...req.query, somente_selo: somenteSelo },
+    res,
+  );
   if (!query) return;
 
   const { lat, lng, raio_km, somente_selo, q } = query;
