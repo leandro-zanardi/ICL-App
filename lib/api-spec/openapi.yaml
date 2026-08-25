@@ -784,7 +784,7 @@ components:
       properties:
         csv:
           type: string
-           description: Conteúdo bruto do arquivo CSV ou JSON oficial da ANP (lido no navegador)
+          description: Conteúdo bruto do arquivo CSV ou JSON oficial da ANP (lido no navegador)
     ImportacaoRelatorio:
       type: object
       required:
