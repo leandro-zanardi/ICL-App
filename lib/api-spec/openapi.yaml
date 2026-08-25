@@ -520,6 +520,8 @@ components:
         razao_social: { type: string }
         nome_fantasia: { type: string }
         bandeira: { type: string }
+        codigo_instalacao_anp: { type: ["string", "null"] }
+        distribuidora: { type: ["string", "null"] }
         endereco: { type: string }
         municipio: { type: string }
         uf: { type: string }
@@ -529,10 +531,13 @@ components:
         score: { type: integer }
         criterios: { $ref: "#/components/schemas/SeloCriterios" }
         situacao_anp: { type: string }
+        nota_anp: { type: ["integer", "null"], minimum: 0, maximum: 5 }
+        status_recebimento: { type: ["string", "null"] }
         data_autorizacao_anp: { type: ["string", "null"] }
         qualidade_verificada_em: { type: ["string", "null"] }
         autuacoes_24m: { type: integer }
         total_checkins: { type: integer }
+        sincronizado_em: { type: ["string", "null"] }
         atualizado_em: { type: string }
     GeoPonto:
       type: object

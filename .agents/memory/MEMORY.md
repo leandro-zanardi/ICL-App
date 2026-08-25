@@ -6,3 +6,4 @@
 - [Isolamento de rede dos testes](test-browser-network-isolation.md) — o navegador de teste não alcança servidores temporários iniciados pelo shell; valide por artefato ou workflow acessível.
 - [Seleção municipal no APEX da ANP](anp-apex-session-state.md) — o mapa depende de estado de sessão persistido pelo fluxo visual; alterações diretas no select não bastam.
 - [Pausa operacional da ANP](anp-sync-operations.md) — coleta automática fica desativada por padrão; retome somente por ação consciente quando a fonte aceitar sessões.
+- [Ficha integrada do posto](ficha-integrada-icl.md) — dados da ANP devem enriquecer a experiência única do ICL, sem separação visual de camadas.

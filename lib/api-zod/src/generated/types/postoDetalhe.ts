@@ -14,6 +14,10 @@ export interface PostoDetalhe {
   razao_social: string;
   nome_fantasia: string;
   bandeira: string;
+  /** @nullable */
+  codigo_instalacao_anp?: string | null;
+  /** @nullable */
+  distribuidora?: string | null;
   endereco: string;
   municipio: string;
   uf: string;
@@ -23,11 +27,21 @@ export interface PostoDetalhe {
   score: number;
   criterios: SeloCriterios;
   situacao_anp: string;
+  /**
+     * @minimum 0
+     * @maximum 5
+     * @nullable
+     */
+  nota_anp?: number | null;
+  /** @nullable */
+  status_recebimento?: string | null;
   /** @nullable */
   data_autorizacao_anp?: string | null;
   /** @nullable */
   qualidade_verificada_em?: string | null;
   autuacoes_24m: number;
   total_checkins: number;
+  /** @nullable */
+  sincronizado_em?: string | null;
   atualizado_em: string;
 }

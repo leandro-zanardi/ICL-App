@@ -99,6 +99,8 @@ router.get("/postos/:id", async (req, res) => {
     razao_social: posto.razaoSocial,
     nome_fantasia: posto.nomeFantasia,
     bandeira: posto.bandeira,
+    codigo_instalacao_anp: posto.codigoInstalacaoAnp,
+    distribuidora: posto.distribuidora,
     endereco: posto.endereco,
     municipio: posto.municipio,
     uf: posto.uf,
@@ -108,10 +110,13 @@ router.get("/postos/:id", async (req, res) => {
     score: posto.score,
     criterios,
     situacao_anp: posto.situacaoAnp,
+    nota_anp: posto.notaAnpColetada,
+    status_recebimento: posto.statusRecebimento,
     data_autorizacao_anp: posto.dataAutorizacaoAnp,
     qualidade_verificada_em: posto.qualidadeVerificadaEm,
     autuacoes_24m: posto.autuacoes24m,
     total_checkins: totalCheckins,
+    sincronizado_em: posto.sincronizadoEm?.toISOString() ?? null,
     atualizado_em: posto.atualizadoEm.toISOString(),
   });
 });

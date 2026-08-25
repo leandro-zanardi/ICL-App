@@ -55,12 +55,19 @@ export const ObterPostoParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const obterPostoResponseNotaAnpMin = 0;
+export const obterPostoResponseNotaAnpMax = 5;
+
+
+
 export const ObterPostoResponse = zod.object({
   "id": zod.string(),
   "cnpj": zod.string(),
   "razao_social": zod.string(),
   "nome_fantasia": zod.string(),
   "bandeira": zod.string(),
+  "codigo_instalacao_anp": zod.string().nullish(),
+  "distribuidora": zod.string().nullish(),
   "endereco": zod.string(),
   "municipio": zod.string(),
   "uf": zod.string(),
@@ -75,10 +82,13 @@ export const ObterPostoResponse = zod.object({
   "bandeira_consistente": zod.boolean()
 }),
   "situacao_anp": zod.string(),
+  "nota_anp": zod.int().min(obterPostoResponseNotaAnpMin).max(obterPostoResponseNotaAnpMax).nullish(),
+  "status_recebimento": zod.string().nullish(),
   "data_autorizacao_anp": zod.string().nullish(),
   "qualidade_verificada_em": zod.string().nullish(),
   "autuacoes_24m": zod.int(),
   "total_checkins": zod.int(),
+  "sincronizado_em": zod.string().nullish(),
   "atualizado_em": zod.string()
 })
 
