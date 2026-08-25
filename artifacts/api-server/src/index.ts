@@ -21,7 +21,7 @@ const SEED_INTERVALO_MS = 15_000;
 const SEED_MAX_TENTATIVAS = 40;
 
 /**
- * Aplica o seed em segundo plano, com novas tentativas.
+ * Aplica o seed de demonstração em segundo plano, com novas tentativas.
  * O servidor NUNCA bloqueia o listen esperando o banco: na primeira
  * publicação, o banco de produção só é provisionado depois que o
  * healthcheck passa — bloquear aqui criaria um impasse circular.
@@ -52,6 +52,12 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  void aplicarSeedComRetentativas();
+  if (process.env["NODE_ENV"] === "production") {
+    logger.info(
+      "Seed de demonstração desativado em produção; importe somente dados oficiais da ANP.",
+    );
+  } else {
+    void aplicarSeedComRetentativas();
+  }
   agendarSincronizacaoAnp();
 });
