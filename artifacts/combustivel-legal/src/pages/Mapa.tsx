@@ -7,7 +7,7 @@ import { PostoFicha } from '@/components/PostoFicha';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, MapPin, ShieldCheck, Navigation2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Search, MapPin, ShieldCheck, Navigation2, AlertCircle, Loader2, RefreshCw, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useRequireAuth } from '@/contexts/RequireAuthContext';
@@ -266,6 +266,14 @@ export default function Mapa() {
                  {nota}
                </span>
              ))}
+             <span className="inline-flex items-center gap-1">
+               <span className="h-2.5 w-2.5 rounded-full border border-white shadow-sm bg-slate-500" />
+               Sem nota
+             </span>
+             <span className="inline-flex items-center gap-1">
+               <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-green-600 text-white"><Check className="h-2.5 w-2.5" strokeWidth={3} /></span>
+               Verificado
+             </span>
            </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -349,7 +357,7 @@ export default function Mapa() {
             <Marker 
               key={posto.id} 
               position={[posto.lat, posto.lng]}
-               icon={criarIconePosto(posto.nota_anp)}
+               icon={criarIconePosto(posto.nota_anp, posto.tier === 'selo')}
               zIndexOffset={posto.tier === 'selo' ? 500 : 100}
               eventHandlers={{ click: () => setSelectedPostoId(posto.id) }}
             />

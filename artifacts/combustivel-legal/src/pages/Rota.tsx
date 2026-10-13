@@ -167,7 +167,7 @@ export default function RotaPage() {
                   <Marker 
                     key={posto.id} 
                     position={[posto.lat, posto.lng]}
-                    icon={criarIconePosto(posto.nota_anp)}
+                    icon={criarIconePosto(posto.nota_anp, posto.tier === 'selo')}
                     zIndexOffset={posto.tier === 'selo' ? 500 - i : 100 - i}
                     eventHandlers={{ click: () => setSelectedPostoId(posto.id) }}
                   />
