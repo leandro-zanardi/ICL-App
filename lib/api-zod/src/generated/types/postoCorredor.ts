@@ -22,4 +22,10 @@ export interface PostoCorredor {
   /** Posição do posto ao longo do trajeto (1 = primeiro) */
   ordem: number;
   rede_associada: boolean;
+  /**
+     * @minimum 0
+     * @maximum 5
+     * @nullable
+     */
+  nota_anp: number | null;
 }

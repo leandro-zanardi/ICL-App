@@ -556,7 +556,7 @@ components:
     PostoCorredor:
       type: object
       required:
-        [id, nome_fantasia, bandeira, endereco, municipio, lat, lng, tier, score, desvio_km, ordem, rede_associada]
+        [id, nome_fantasia, bandeira, endereco, municipio, lat, lng, tier, score, desvio_km, ordem, rede_associada, nota_anp]
       properties:
         id: { type: string }
         nome_fantasia: { type: string }
@@ -574,6 +574,7 @@ components:
           type: integer
           description: Posição do posto ao longo do trajeto (1 = primeiro)
         rede_associada: { type: boolean }
+        nota_anp: { type: ["integer", "null"], minimum: 0, maximum: 5 }
     Rota:
       type: object
       required: [origem, destino, polyline, distancia_km, duracao_min, postos, fonte]

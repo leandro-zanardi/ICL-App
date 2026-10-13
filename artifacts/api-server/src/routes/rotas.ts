@@ -69,6 +69,7 @@ router.post("/rotas", async (req, res) => {
       desvio_km: Math.round(c.desvioKm * 10) / 10,
       ordem: idx + 1,
       rede_associada: isRedeAssociada(c.posto.bandeira),
+      nota_anp: c.posto.notaAnpColetada,
     }));
 
   publicarEvento({

@@ -113,6 +113,11 @@ export const CalcularRotaBody = zod.object({
   "destino": zod.string().min(calcularRotaBodyDestinoMin)
 })
 
+export const calcularRotaResponsePostosItemNotaAnpMin = 0;
+export const calcularRotaResponsePostosItemNotaAnpMax = 5;
+
+
+
 export const CalcularRotaResponse = zod.object({
   "origem": zod.object({
   "label": zod.string(),
@@ -139,7 +144,8 @@ export const CalcularRotaResponse = zod.object({
   "score": zod.int(),
   "desvio_km": zod.number().describe('Distância do desvio a partir do trajeto, em km'),
   "ordem": zod.int().describe('Posição do posto ao longo do trajeto (1 = primeiro)'),
-  "rede_associada": zod.boolean()
+  "rede_associada": zod.boolean(),
+  "nota_anp": zod.int().min(calcularRotaResponsePostosItemNotaAnpMin).max(calcularRotaResponsePostosItemNotaAnpMax).nullable()
 })),
   "fonte": zod.string().describe('osrm | cache | fallback')
 })

@@ -1,4 +1,4 @@
-const VERSION = 'combustivel-legal-v3';
+const VERSION = 'combustivel-legal-v4';
 const APP_CACHE = `${VERSION}-app`;
 const MAP_CACHE = `${VERSION}-map`;
 const API_CACHE = `${VERSION}-api`;
@@ -83,12 +83,20 @@ self.addEventListener('fetch', (event) => {
   if (isPublicApiGet(request, url)) {
     event.respondWith(
       caches.open(API_CACHE).then(async (cache) => {
+        // Rede primeiro: dados públicos de postos mudam; o cache só serve de
+        // reserva quando a rede falha ou responde com erro do servidor.
         const cached = await cache.match(request);
-        const network = fetchWithTimeout(request).then((response) => {
-          if (response.ok) cache.put(request, response.clone());
-          return response;
-        }).catch(() => cached);
-        return cached || network;
+        try {
+          const response = await fetchWithTimeout(request);
+          if (response.ok) {
+            cache.put(request, response.clone());
+            return response;
+          }
+          return cached || response;
+        } catch (error) {
+          if (cached) return cached;
+          throw error;
+        }
       }),
     );
     return;

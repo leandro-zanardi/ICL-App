@@ -11,61 +11,12 @@ import { Search, MapPin, ShieldCheck, Navigation2, AlertCircle, Loader2, Refresh
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useRequireAuth } from '@/contexts/RequireAuthContext';
+import { coresNota, criarIconePosto } from '@/lib/pin-nota';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
 // --- Custom Icons ---
 const userIconHtml = `<div style="width: 24px; height: 24px; background: rgba(14,42,71,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;"><div style="width: 12px; height: 12px; background: #0E2A47; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div></div>`;
 const userIcon = L.divIcon({ html: userIconHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
-
-const seloIconHtml = `<svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.svg.org/2000/svg">
-  <path d="M16 0C7.16344 0 0 7.16344 0 16C0 26.6667 16 42 16 42C16 42 32 26.6667 32 16C32 7.16344 24.8366 0 16 0Z" fill="#0E2A47"/>
-  <circle cx="16" cy="16" r="10" fill="white"/>
-  <path d="M16 8C11.5817 8 8 11.5817 8 16C8 20.4183 16 24 16 24C16 24 24 20.4183 24 16C24 11.5817 20.4183 8 16 8Z" fill="url(#pinGrad)"/>
-  <defs>
-    <linearGradient id="pinGrad" x1="8" y1="8" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFC20E"/>
-      <stop offset="0.5" stop-color="#F58220"/>
-      <stop offset="1" stop-color="#E63329"/>
-    </linearGradient>
-  </defs>
-</svg>`;
-const seloIcon = L.divIcon({ html: seloIconHtml, className: '', iconSize: [32, 42], iconAnchor: [16, 42] });
-
-const regularIconHtml = `<svg width="28" height="38" viewBox="0 0 28 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M14 1C6.82 1 1 6.82 1 14C1 23.08 14 37 14 37C14 37 27 23.08 27 14C27 6.82 21.18 1 14 1Z" fill="#64748B" stroke="white" stroke-width="2"/>
-  <circle cx="14" cy="14" r="5" fill="white"/>
-</svg>`;
-const regularIcon = L.divIcon({ html: regularIconHtml, className: '', iconSize: [28, 38], iconAnchor: [14, 38] });
-
-const coresNota = {
-  0: { cor: '#DC2626', rotulo: 'Nota 0' },
-  1: { cor: '#FACC15', rotulo: 'Nota 1' },
-  2: { cor: '#F97316', rotulo: 'Nota 2' },
-  3: { cor: '#A78BFA', rotulo: 'Nota 3' },
-  4: { cor: '#86EFAC', rotulo: 'Nota 4' },
-  5: { cor: '#15803D', rotulo: 'Nota 5' },
-} as const;
-
-const iconesPorNota = new Map<string, L.DivIcon>();
-
-function criarIconePosto(nota: number | null | undefined): L.DivIcon {
-  const configuracao = typeof nota === 'number' && nota in coresNota
-    ? coresNota[nota as keyof typeof coresNota]
-    : { cor: '#64748B', rotulo: 'Nota ANP indisponível' };
-  const chave = `${nota ?? 'sem-nota'}-${configuracao.cor}`;
-  const existente = iconesPorNota.get(chave);
-  if (existente) return existente;
-
-  const simbolo = typeof nota === 'number' && nota in coresNota ? nota : '?';
-  const html = `<svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${configuracao.rotulo}">
-    <path d="M16 1C7.716 1 1 7.716 1 16C1 26.125 16 41 16 41C16 41 31 26.125 31 16C31 7.716 24.284 1 16 1Z" fill="${configuracao.cor}" stroke="white" stroke-width="2"/>
-    <circle cx="16" cy="16" r="8.5" fill="white"/>
-    <text x="16" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#0F172A">${simbolo}</text>
-  </svg>`;
-  const icone = L.divIcon({ html, className: '', iconSize: [32, 42], iconAnchor: [16, 42] });
-  iconesPorNota.set(chave, icone);
-  return icone;
-}
 
 type SavedMapState = {
   searchCenter: { lat: number; lng: number };
@@ -243,11 +194,12 @@ export default function Mapa() {
     setShowAddressDropdown(false);
   };
 
+  const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
   const postosSelo = postos.filter(p => p.tier === 'selo').length;
 
   return (
     <div className="h-full w-full relative flex flex-col">
-      <div className="absolute top-0 inset-x-0 z-[400] bg-gradient-to-b from-white via-white/90 to-transparent pb-6 pt-4 px-4 shadow-sm md:rounded-t-[2.5rem]">
+      <div className="absolute top-0 inset-x-0 z-[400] bg-gradient-to-b from-white via-white/90 to-transparent pb-6 pt-[calc(env(safe-area-inset-top)+1rem)] px-4 shadow-sm md:rounded-t-[2.5rem]">
         {/* Search */}
         <div className="relative mb-3">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -300,9 +252,9 @@ export default function Mapa() {
 
           <p className="mb-2 text-xs font-semibold text-primary">
             {isPostosLoading
-              ? 'Carregando postos verificados perto de você…'
+              ? 'Carregando postos perto de você…'
               : isPostosError
-                ? 'Postos verificados indisponíveis no momento'
+                ? 'Postos indisponíveis no momento'
                 : `${postos.length} ${postos.length === 1 ? 'posto no mapa' : 'postos no mapa'}${postosSelo > 0 ? ` · ${postosSelo} ${postosSelo === 1 ? 'verificado' : 'verificados'}` : ''}`}
           </p>
 
@@ -322,7 +274,7 @@ export default function Mapa() {
             aria-pressed={somenteSelo}
             onClick={toggleSomenteSelo}
             className={cn(
-              "shrink-0 px-4 py-2 rounded-full text-sm font-medium border flex items-center gap-2 transition-colors",
+              "shrink-0 min-h-11 px-4 py-2 rounded-full text-sm font-medium border flex items-center gap-2 transition-colors",
               somenteSelo ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200"
             )}
           >
@@ -336,7 +288,7 @@ export default function Mapa() {
                 key={r}
                 onClick={() => setRaio(r)}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "min-h-9 min-w-11 px-3 py-1 text-xs font-medium rounded-full transition-colors",
                   raio === r ? "bg-slate-100 text-primary" : "text-slate-500 hover:bg-slate-50"
                 )}
               >
@@ -346,6 +298,29 @@ export default function Mapa() {
           </div>
 
         </div>
+
+        {isPostosError && (
+          <div role="alert" className="mt-2 flex items-center gap-3 rounded-xl border border-red-100 bg-white p-3 shadow-sm">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+            <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-slate-800">
+              {isOffline
+                ? 'Sem conexão com a internet. Verifique o sinal e tente de novo.'
+                : 'Não conseguimos carregar os postos agora. Tente novamente em instantes.'}
+            </p>
+            <Button variant="outline" size="sm" className="h-11 shrink-0 px-3" onClick={() => void refetchPostos()}>
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+              Tentar
+            </Button>
+          </div>
+        )}
+
+        {!isPostosLoading && !isPostosError && postos.length === 0 && (
+          <div role="status" className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-center text-sm font-medium text-slate-600 shadow-sm">
+            {somenteSelo
+              ? 'Nenhum posto verificado neste raio — desligue o filtro ou amplie a busca.'
+              : 'Nenhum posto encontrado neste raio — amplie a busca ou mude a região.'}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 relative bg-slate-100 z-0">
@@ -383,36 +358,6 @@ export default function Mapa() {
         <div className="pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom)+66px)] left-2 z-[400] rounded bg-white/90 px-1.5 py-1 text-[10px] text-slate-600 shadow-sm">
           © OpenStreetMap contributors
         </div>
-
-        {isPostosLoading && (
-          <div className="absolute inset-x-4 top-32 z-[400] rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              Carregando postos verificados…
-            </div>
-          </div>
-        )}
-
-        {isPostosError && (
-          <div className="absolute inset-x-4 top-32 z-[400] rounded-xl border border-red-100 bg-white/95 p-4 shadow-sm backdrop-blur">
-            <div className="flex gap-3">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-800">Não conseguimos carregar os postos agora</p>
-                <Button variant="outline" size="sm" className="mt-3 h-8" onClick={() => void refetchPostos()}>
-                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
-                  Tentar novamente
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!isPostosLoading && !isPostosError && postos.length === 0 && (
-          <div className="absolute inset-x-4 top-32 z-[400] rounded-xl border border-slate-200 bg-white/95 px-4 py-3 text-center text-sm font-medium text-slate-600 shadow-sm backdrop-blur">
-            Nenhum posto verificado neste raio — amplie a busca.
-          </div>
-        )}
 
         {isPanning && (
           <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+70px)] left-1/2 -translate-x-1/2 z-[400]">

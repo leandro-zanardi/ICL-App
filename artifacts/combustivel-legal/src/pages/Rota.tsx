@@ -9,26 +9,8 @@ import L from 'leaflet';
 import { Search, MapPin, Route, Navigation, Award, Loader2, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PostoFicha } from '@/components/PostoFicha';
+import { criarIconePosto } from '@/lib/pin-nota';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-
-const seloIconHtml = `<svg width="24" height="32" viewBox="0 0 32 42" fill="none" xmlns="http://www.svg.org/2000/svg">
-  <path d="M16 0C7.16344 0 0 7.16344 0 16C0 26.6667 16 42 16 42C16 42 32 26.6667 32 16C32 7.16344 24.8366 0 16 0Z" fill="#0E2A47"/>
-  <circle cx="16" cy="16" r="10" fill="white"/>
-  <path d="M16 8C11.5817 8 8 11.5817 8 16C8 20.4183 16 24 16 24C16 24 24 20.4183 24 16C24 11.5817 20.4183 8 16 8Z" fill="url(#pinGradRoute)"/>
-  <defs>
-    <linearGradient id="pinGradRoute" x1="8" y1="8" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFC20E"/>
-      <stop offset="0.5" stop-color="#F58220"/>
-      <stop offset="1" stop-color="#E63329"/>
-    </linearGradient>
-  </defs>
-</svg>`;
-const seloIcon = L.divIcon({ html: seloIconHtml, className: '', iconSize: [24, 32], iconAnchor: [12, 32] });
-
-const regularIconHtml = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.svg.org/2000/svg">
-  <circle cx="10" cy="10" r="8" fill="white" stroke="#94A3B8" stroke-width="4"/>
-</svg>`;
-const regularIcon = L.divIcon({ html: regularIconHtml, className: '', iconSize: [16, 16], iconAnchor: [8, 8] });
 
 export default function RotaPage() {
   const { activePosition } = useLocationContext();
@@ -185,7 +167,7 @@ export default function RotaPage() {
                   <Marker 
                     key={posto.id} 
                     position={[posto.lat, posto.lng]}
-                    icon={posto.tier === 'selo' ? seloIcon : regularIcon}
+                    icon={criarIconePosto(posto.nota_anp)}
                     zIndexOffset={posto.tier === 'selo' ? 500 - i : 100 - i}
                     eventHandlers={{ click: () => setSelectedPostoId(posto.id) }}
                   />
