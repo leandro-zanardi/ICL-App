@@ -3,7 +3,7 @@ import { ListarPostosQueryParams } from "@workspace/api-zod";
 import { db, postos, checkins } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { haversineKm, geohash5 } from "../lib/geo";
-import { calcularScore, isRedeAssociada } from "../lib/score";
+import { calcularScore, isRedeAssociada, NOTA_PADRAO_SEM_NOTA } from "../lib/score";
 import { priorizarDetalhamentoAnp } from "../lib/anp-sync";
 import { publicarEvento } from "../lib/sse";
 import { validar } from "../lib/validar";
@@ -78,7 +78,7 @@ router.get("/postos", async (req, res) => {
       score: posto.score,
       distancia_km: Math.round(distanciaKm * 10) / 10,
       rede_associada: isRedeAssociada(posto.bandeira),
-       nota_anp: posto.notaAnpColetada,
+       nota_anp: posto.notaAnpColetada ?? NOTA_PADRAO_SEM_NOTA,
     }));
 
   res.json(resultado);
@@ -128,7 +128,7 @@ router.get("/postos/:id", async (req, res) => {
     score: posto.score,
     criterios,
     situacao_anp: posto.situacaoAnp,
-    nota_anp: posto.notaAnpColetada,
+    nota_anp: posto.notaAnpColetada ?? NOTA_PADRAO_SEM_NOTA,
     status_recebimento: posto.statusRecebimento,
     data_autorizacao_anp: posto.dataAutorizacaoAnp,
     qualidade_verificada_em: posto.qualidadeVerificadaEm,

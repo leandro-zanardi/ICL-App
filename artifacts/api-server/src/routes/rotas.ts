@@ -4,7 +4,7 @@ import { db, postos } from "@workspace/db";
 import { distanceToPolyline, samplePolyline, type LatLng } from "../lib/geo";
 import { buscarEnderecos, type GeoPonto } from "../lib/geocode";
 import { calcularRotaVeicular } from "../lib/osrm";
-import { isRedeAssociada } from "../lib/score";
+import { isRedeAssociada, NOTA_PADRAO_SEM_NOTA } from "../lib/score";
 import { publicarEvento } from "../lib/sse";
 import { validar } from "../lib/validar";
 
@@ -69,7 +69,7 @@ router.post("/rotas", async (req, res) => {
       desvio_km: Math.round(c.desvioKm * 10) / 10,
       ordem: idx + 1,
       rede_associada: isRedeAssociada(c.posto.bandeira),
-      nota_anp: c.posto.notaAnpColetada,
+      nota_anp: c.posto.notaAnpColetada ?? NOTA_PADRAO_SEM_NOTA,
     }));
 
   publicarEvento({

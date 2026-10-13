@@ -358,3 +358,5 @@ export const BANDEIRA_ASSOCIADA = "Horizonte";
 export function isRedeAssociada(bandeira: string): boolean {
   return bandeira.trim().toLowerCase() === BANDEIRA_ASSOCIADA.toLowerCase();
 }
+/** Decisão do produto: postos sem nota da ANP são exibidos com nota 5. O valor bruto coletado não é alterado. */
+export const NOTA_PADRAO_SEM_NOTA = 5;
