@@ -341,6 +341,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erro"
+    get:
+      operationId: listarMinhasDenuncias
+      tags: [denuncias]
+      summary: Lista as denúncias feitas pelo aparelho (identificação anônima x-session-id)
+      responses:
+        "200":
+          description: Denúncias do aparelho com linha do tempo (mais recentes primeiro)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DenunciaAcompanhamento"
   /apresentacao/dashboard:
     get:
       operationId: obterDashboard
@@ -403,6 +416,41 @@ paths:
                 $ref: "#/components/schemas/ImportacaoRelatorio"
         "400":
           description: CSV inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+  /admin/denuncias/{protocolo}/andamento:
+    post:
+      operationId: registrarAndamentoDenuncia
+      tags: [admin]
+      summary: Registra andamento ou resposta de órgão numa denúncia (header x-admin-token)
+      parameters:
+        - name: protocolo
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AndamentoInput"
+      responses:
+        "200":
+          description: Denúncia atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DenunciaAcompanhamento"
+        "401":
+          description: Token administrativo inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "404":
+          description: Denúncia não encontrada
           content:
             application/json:
               schema:
@@ -700,6 +748,10 @@ components:
           type: string
           enum: [qualidade_combustivel, volume_bomba, posto_clone, outra]
         descricao: { type: string, minLength: 5 }
+        client_id:
+          type: ["string", "null"]
+          maxLength: 64
+          description: Identificador gerado no aparelho; evita duplicar a denúncia em reenvios
         foto_nome:
           type: ["string", "null"]
           description: Nome do arquivo anexado (opcional, apenas referência no protótipo)
@@ -710,6 +762,43 @@ components:
         id: { type: string }
         protocolo: { type: string }
         criado_em: { type: string }
+    DenunciaStatus:
+      type: string
+      enum: [recebida, encaminhada, respondida]
+    Andamento:
+      type: object
+      required: [id, status, mensagem, criado_em]
+      properties:
+        id: { type: string }
+        status: { $ref: "#/components/schemas/DenunciaStatus" }
+        orgao: { type: ["string", "null"] }
+        mensagem: { type: string }
+        criado_em: { type: string }
+    AndamentoInput:
+      type: object
+      required: [status, mensagem]
+      properties:
+        status: { $ref: "#/components/schemas/DenunciaStatus" }
+        orgao: { type: ["string", "null"] }
+        mensagem: { type: string, minLength: 1, maxLength: 1000 }
+    DenunciaAcompanhamento:
+      type: object
+      required: [id, protocolo, categoria, descricao, status, criado_em, andamentos]
+      properties:
+        id: { type: string }
+        client_id: { type: ["string", "null"] }
+        protocolo: { type: string }
+        categoria: { type: string }
+        posto_id: { type: ["string", "null"] }
+        posto_nome: { type: ["string", "null"] }
+        municipio: { type: ["string", "null"] }
+        descricao: { type: string }
+        status: { $ref: "#/components/schemas/DenunciaStatus" }
+        criado_em: { type: string }
+        andamentos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Andamento"
     PostoVisualizacao:
       type: object
       required: [posto_id, nome_fantasia, municipio, visualizacoes]

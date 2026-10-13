@@ -14,6 +14,12 @@ export interface DenunciaInput {
   /** @minLength 5 */
   descricao: string;
   /**
+     * Identificador gerado no aparelho; evita duplicar a denúncia em reenvios
+     * @maxLength 64
+     * @nullable
+     */
+  client_id?: string | null;
+  /**
      * Nome do arquivo anexado (opcional, apenas referência no protótipo)
      * @nullable
      */

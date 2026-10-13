@@ -253,6 +253,12 @@ export interface DenunciaInput {
   /** @minLength 5 */
   descricao: string;
   /**
+     * Identificador gerado no aparelho; evita duplicar a denúncia em reenvios
+     * @maxLength 64
+     * @nullable
+     */
+  client_id?: string | null;
+  /**
      * Nome do arquivo anexado (opcional, apenas referência no protótipo)
      * @nullable
      */
@@ -263,6 +269,53 @@ export interface DenunciaResposta {
   id: string;
   protocolo: string;
   criado_em: string;
+}
+
+export type DenunciaStatus = typeof DenunciaStatus[keyof typeof DenunciaStatus];
+
+
+export const DenunciaStatus = {
+  recebida: 'recebida',
+  encaminhada: 'encaminhada',
+  respondida: 'respondida',
+} as const;
+
+export interface Andamento {
+  id: string;
+  status: DenunciaStatus;
+  /** @nullable */
+  orgao?: string | null;
+  mensagem: string;
+  criado_em: string;
+}
+
+export interface AndamentoInput {
+  status: DenunciaStatus;
+  /** @nullable */
+  orgao?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  mensagem: string;
+}
+
+export interface DenunciaAcompanhamento {
+  id: string;
+  /** @nullable */
+  client_id?: string | null;
+  protocolo: string;
+  categoria: string;
+  /** @nullable */
+  posto_id?: string | null;
+  /** @nullable */
+  posto_nome?: string | null;
+  /** @nullable */
+  municipio?: string | null;
+  descricao: string;
+  status: DenunciaStatus;
+  criado_em: string;
+  andamentos: Andamento[];
 }
 
 export interface PostoVisualizacao {

@@ -6,8 +6,12 @@ import {
   ListarSincronizacoesAnpResponse,
   ObterSincronizacaoAnpParams,
   ObterSincronizacaoAnpResponse,
+  RegistrarAndamentoDenunciaBody,
+  RegistrarAndamentoDenunciaParams,
 } from "@workspace/api-zod";
-import { anpSincronizacoes, db, postos, type NovoPosto } from "@workspace/db";
+import { anpSincronizacoes, db, denunciaAndamentos, denuncias, postos, type NovoPosto } from "@workspace/db";
+import { timingSafeEqual } from "node:crypto";
+import { apresentarDenuncias } from "./denuncias";
 import { desc, eq, sql } from "drizzle-orm";
 import { parseCsvAnp, type LinhaAnp } from "../lib/anp-csv";
 import { iniciarSincronizacaoAnp, MUNICIPIOS_ANP } from "../lib/anp-sync";
@@ -15,6 +19,44 @@ import { validar } from "../lib/validar";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+
+function tokenAdminValido(req: { header(nome: string): string | undefined }): "ok" | "invalido" | "nao_configurado" {
+  const esperado = process.env.ADMIN_TOKEN;
+  if (!esperado) return "nao_configurado";
+  const enviado = req.header("x-admin-token") ?? "";
+  const a = Buffer.from(enviado);
+  const b = Buffer.from(esperado);
+  return a.length === b.length && timingSafeEqual(a, b) ? "ok" : "invalido";
+}
+
+router.post("/admin/denuncias/:protocolo/andamento", async (req, res) => {
+  const acesso = tokenAdminValido(req);
+  if (acesso !== "ok") {
+    res.status(401).json({
+      erro: acesso === "nao_configurado" ? "Token administrativo não configurado no servidor." : "Token administrativo inválido.",
+    });
+    return;
+  }
+  const params = validar(RegistrarAndamentoDenunciaParams, req.params, res);
+  if (!params) return;
+  const body = validar(RegistrarAndamentoDenunciaBody, req.body, res);
+  if (!body) return;
+
+  const [denuncia] = await db.select().from(denuncias).where(eq(denuncias.protocolo, params.protocolo)).limit(1);
+  if (!denuncia) {
+    res.status(404).json({ erro: "Denúncia não encontrada." });
+    return;
+  }
+  await db.insert(denunciaAndamentos).values({
+    denunciaId: denuncia.id,
+    status: body.status,
+    orgao: body.orgao ?? null,
+    mensagem: body.mensagem,
+  });
+  const [atualizada] = await db.update(denuncias).set({ status: body.status }).where(eq(denuncias.id, denuncia.id)).returning();
+  const [resultado] = await apresentarDenuncias([atualizada]);
+  res.json(resultado);
+});
 
 function apresentarSincronizacao(execucao: typeof anpSincronizacoes.$inferSelect) {
   return {

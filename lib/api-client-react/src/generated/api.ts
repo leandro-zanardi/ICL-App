@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AndamentoInput,
   BuscarEnderecoParams,
   Carteira,
   CheckinInput,
@@ -28,6 +29,7 @@ import type {
   DemoEventosInput,
   DemoEventosResultado,
   DemoResultado,
+  DenunciaAcompanhamento,
   DenunciaInput,
   DenunciaResposta,
   Erro,
@@ -1058,6 +1060,83 @@ export const useCriarDenuncia = <TError = ErrorType<Erro>,
       return useMutation(getCriarDenunciaMutationOptions(options));
     }
 
+export const getListarMinhasDenunciasUrl = () => {
+
+
+
+
+  return `/api/denuncias`
+}
+
+/**
+ * @summary Lista as denúncias feitas pelo aparelho (identificação anônima x-session-id)
+ */
+export const listarMinhasDenuncias = async ( options?: Parameters<typeof customFetch>[1]): Promise<DenunciaAcompanhamento[]> => {
+
+  return customFetch<DenunciaAcompanhamento[]>(getListarMinhasDenunciasUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListarMinhasDenunciasQueryKey = () => {
+    return [
+    `/api/denuncias`
+    ] as const;
+    }
+
+
+export const getListarMinhasDenunciasQueryOptions = <TData = Awaited<ReturnType<typeof listarMinhasDenuncias>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listarMinhasDenuncias>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListarMinhasDenunciasQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listarMinhasDenuncias>>> = ({ signal }) => listarMinhasDenuncias({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listarMinhasDenuncias>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListarMinhasDenunciasQueryResult = NonNullable<Awaited<ReturnType<typeof listarMinhasDenuncias>>>
+export type ListarMinhasDenunciasQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Lista as denúncias feitas pelo aparelho (identificação anônima x-session-id)
+ */
+
+export function useListarMinhasDenuncias<TData = Awaited<ReturnType<typeof listarMinhasDenuncias>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listarMinhasDenuncias>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListarMinhasDenunciasQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getObterDashboardUrl = () => {
 
 
@@ -1346,6 +1425,78 @@ export const useImportarCsvAnp = <TError = ErrorType<Erro>,
         TContext
       > => {
       return useMutation(getImportarCsvAnpMutationOptions(options));
+    }
+
+export const getRegistrarAndamentoDenunciaUrl = (protocolo: string,) => {
+
+
+
+
+  return `/api/admin/denuncias/${protocolo}/andamento`
+}
+
+/**
+ * @summary Registra andamento ou resposta de órgão numa denúncia (header x-admin-token)
+ */
+export const registrarAndamentoDenuncia = async (protocolo: string,
+    andamentoInput: AndamentoInput, options?: Parameters<typeof customFetch>[1]): Promise<DenunciaAcompanhamento> => {
+
+  return customFetch<DenunciaAcompanhamento>(getRegistrarAndamentoDenunciaUrl(protocolo),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(andamentoInput)
+  }
+);}
+
+
+
+
+
+export const getRegistrarAndamentoDenunciaMutationOptions = <TError = ErrorType<Erro>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registrarAndamentoDenuncia>>, TError,{protocolo: string;data: BodyType<AndamentoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registrarAndamentoDenuncia>>, TError,{protocolo: string;data: BodyType<AndamentoInput>}, TContext> => {
+
+const mutationKey = ['registrarAndamentoDenuncia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registrarAndamentoDenuncia>>, {protocolo: string;data: BodyType<AndamentoInput>}> = (props) => {
+          const {protocolo,data} = props ?? {};
+
+          return  registrarAndamentoDenuncia(protocolo,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegistrarAndamentoDenunciaMutationResult = NonNullable<Awaited<ReturnType<typeof registrarAndamentoDenuncia>>>
+    export type RegistrarAndamentoDenunciaMutationBody = BodyType<AndamentoInput>
+    export type RegistrarAndamentoDenunciaMutationError = ErrorType<Erro>
+
+    /**
+ * @summary Registra andamento ou resposta de órgão numa denúncia (header x-admin-token)
+ */
+export const useRegistrarAndamentoDenuncia = <TError = ErrorType<Erro>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registrarAndamentoDenuncia>>, TError,{protocolo: string;data: BodyType<AndamentoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registrarAndamentoDenuncia>>,
+        TError,
+        {protocolo: string;data: BodyType<AndamentoInput>},
+        TContext
+      > => {
+      return useMutation(getRegistrarAndamentoDenunciaMutationOptions(options));
     }
 
 export const getIniciarSincronizacaoAnpUrl = () => {

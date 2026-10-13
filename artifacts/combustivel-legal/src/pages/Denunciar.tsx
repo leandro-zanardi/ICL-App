@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
+import { MinhasDenuncias } from '@/components/MinhasDenuncias';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,24 +8,24 @@ import { Label } from '@/components/ui/label';
 import { useListarPostos, DenunciaInputCategoria, getListarPostosQueryKey } from '@workspace/api-client-react';
 import { useLocationContext } from '@/contexts/LocationContext';
 import { useDenunciaQueue } from '@/contexts/DenunciaQueueContext';
-import { AlertTriangle, Droplet, Hash, Copy, CheckCircle2, MapPin, Camera, X, WifiOff, RefreshCw, Clock3 } from 'lucide-react';
+import { AlertTriangle, Droplet, Hash, Copy, CheckCircle2, MapPin, Camera, X, WifiOff, Clock3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
 export default function DenunciarPage() {
   const { activePosition } = useLocationContext();
-  const { isOnline, queue, sendDenuncia, retryDenuncia, lastSent } = useDenunciaQueue();
-  
-  const [step, setStep] = useState<'form' | 'pending' | 'success'>('form');
-  const [protocolo, setProtocolo] = useState('');
-  
+  const { isOnline, items, sendDenuncia } = useDenunciaQueue();
+
+  const [step, setStep] = useState<'form' | 'done'>('form');
+  const [doneId, setDoneId] = useState<string | null>(null);
+
   const [categoria, setCategoria] = useState<DenunciaInputCategoria>('qualidade_combustivel');
   const [descricao, setDescricao] = useState('');
   const [postoSearch, setPostoSearch] = useState('');
   const [selectedPostoId, setSelectedPostoId] = useState<string | null>(null);
   const [fotoNome, setFotoNome] = useState<string | null>(null);
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const debouncedPostoSearch = useDebouncedValue(postoSearch.trim());
   const isPostoQueryCurrent = debouncedPostoSearch === postoSearch.trim();
 
@@ -51,126 +52,85 @@ export default function DenunciarPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (descricao.length < 5) {
-      toast({ title: 'Descrição muito curta', description: 'Por favor, detalhe melhor o ocorrido.', variant: 'destructive' });
+    if (descricao.length < 5 || submitting) {
+      if (descricao.length < 5) {
+        toast({ title: 'Descrição muito curta', description: 'Por favor, detalhe melhor o ocorrido.', variant: 'destructive' });
+      }
       return;
     }
-
-    void sendDenuncia({
-      categoria,
-      descricao,
-      posto_id: selectedPostoId,
-      foto_nome: fotoNome
-    }).then((result) => {
-      if (result.status === 'sent') {
-        setProtocolo(result.response.protocolo);
-        setStep('success');
-      } else {
-        setPendingId(result.id);
-        setStep('pending');
-      }
-    });
-  };
-
-  useEffect(() => {
-    if (pendingId && lastSent?.id === pendingId) {
-      setProtocolo(lastSent.response.protocolo);
-      setStep('success');
-      setPendingId(null);
+    setSubmitting(true);
+    try {
+      const result = await sendDenuncia({
+        categoria,
+        descricao,
+        posto_id: selectedPostoId,
+        foto_nome: fotoNome,
+      });
+      setDoneId(result.id);
+      setStep('done');
+    } finally {
+      setSubmitting(false);
     }
-  }, [lastSent, pendingId]);
-
-  const copyProtocol = () => {
-    navigator.clipboard.writeText(protocolo);
-    toast({ title: 'Protocolo copiado' });
   };
 
-  if (step === 'pending') {
-    const pending = queue.find((item) => item.id === pendingId);
-    return (
-      <div className="h-full w-full flex flex-col bg-slate-50">
-        <Header title="Denunciar" />
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center pb-24">
-          <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
-            {pending?.status === 'error' ? <RefreshCw className="w-10 h-10" /> : <Clock3 className="w-10 h-10" />}
-          </div>
-          <h2 className="text-2xl font-bold font-display text-slate-800 mb-2">
-            {pending?.status === 'error' ? 'Ainda não foi enviada' : 'Denúncia pendente'}
-          </h2>
-          <p className="text-slate-600 mb-6">
-            {pending?.status === 'error'
-              ? pending.error
-              : 'Salvamos sua denúncia neste aparelho. Ela será enviada automaticamente assim que a conexão voltar.'}
-          </p>
-          <div className="w-full max-w-sm bg-amber-50 border border-amber-200 rounded-xl p-4 text-left flex gap-3 mb-6">
-            {isOnline ? (
-              <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-            ) : (
-              <WifiOff className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-            )}
-            <div className="text-sm text-amber-900">
-              <strong>{isOnline ? 'Nosso sistema está instável' : 'Sem conexão'}</strong>
-              <div className="mt-1 text-amber-800">
-                {isOnline
-                  ? 'Não conseguimos enviar agora. Tente novamente em instantes.'
-                  : 'A fila continua salva neste aparelho e será enviada quando a conexão voltar.'}
-              </div>
-            </div>
-          </div>
-          {pending?.status === 'error' && (
-            <Button variant="outline" className="w-full max-w-sm mb-3" onClick={() => pendingId && retryDenuncia(pendingId)}>
-              Tentar enviar novamente
-            </Button>
-          )}
-          <Button variant="outline" className="w-full max-w-sm" onClick={() => {
-            setStep('form');
-            setPendingId(null);
-            setDescricao('');
-            setFotoNome(null);
-            setSelectedPostoId(null);
-            setPostoSearch('');
-          }}>
-            Fazer nova denúncia
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const resetForm = () => {
+    setStep('form');
+    setDoneId(null);
+    setDescricao('');
+    setFotoNome(null);
+    setSelectedPostoId(null);
+    setPostoSearch('');
+  };
 
-  if (step === 'success') {
+  const done = doneId ? items.find((item) => item.id === doneId) : undefined;
+
+  if (step === 'done' && done) {
+    const received = done.status === 'sent' && !!done.protocolo;
+    const protocolo = received ? done.protocolo! : done.provisionalProtocol;
+    const copyProtocol = () => {
+      void navigator.clipboard?.writeText(protocolo);
+      toast({ title: 'Protocolo copiado' });
+    };
     return (
       <div className="h-full w-full flex flex-col bg-slate-50">
         <Header title="Denunciar" />
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center pb-24">
-          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
-            <CheckCircle2 className="w-10 h-10" />
-          </div>
-          <h2 className="text-2xl font-bold font-display text-slate-800 mb-2">Denúncia Registrada</h2>
-          <p className="text-slate-600 mb-6">
-            O ICL encaminha as informações aos órgãos competentes. Agradecemos sua colaboração.
-          </p>
-          
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm w-full max-w-sm mb-8">
-            <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-2">Seu Protocolo</div>
-            <div className="text-2xl font-mono font-bold text-primary flex items-center justify-center gap-3">
-              {protocolo}
-              <button onClick={copyProtocol} className="text-slate-400 hover:text-primary transition-colors">
-                <Copy className="w-5 h-5" />
-              </button>
+        <div className="flex-1 overflow-y-auto pb-24">
+          <div className="flex flex-col items-center p-8 text-center">
+            <div className={cn('w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-sm', received ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600')}>
+              {received ? <CheckCircle2 className="w-10 h-10" /> : <Clock3 className="w-10 h-10" />}
             </div>
+            <h2 className="text-2xl font-bold font-display text-slate-800 mb-2">
+              {received ? 'Denúncia registrada' : 'Denúncia guardada no aparelho'}
+            </h2>
+            <p className="text-slate-600 mb-6">
+              {received
+                ? 'O ICL encaminha as informações aos órgãos competentes. Acompanhe o andamento em "Minhas denúncias".'
+                : 'Ainda não foi recebida pelo ICL. Vamos reenviar automaticamente quando a conexão ou o servidor voltarem, e o protocolo oficial aparecerá em "Minhas denúncias".'}
+            </p>
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm w-full max-w-sm mb-4">
+              <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-2">
+                {received ? 'Seu protocolo' : 'Protocolo provisório'}
+              </div>
+              <div className="text-2xl font-mono font-bold text-primary flex items-center justify-center gap-3">
+                {protocolo}
+                <button onClick={copyProtocol} aria-label="Copiar protocolo" className="text-slate-400 hover:text-primary transition-colors">
+                  <Copy className="w-5 h-5" />
+                </button>
+              </div>
+              {!received && (
+                <div className="mt-3 flex items-start gap-2 text-left text-xs text-amber-800">
+                  {isOnline ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <WifiOff className="w-4 h-4 shrink-0" />}
+                  {isOnline ? 'Nosso sistema está instável. Continuamos tentando.' : 'Sem conexão. A denúncia está salva neste aparelho.'}
+                </div>
+              )}
+            </div>
+            <Button variant="outline" className="w-full max-w-sm" onClick={resetForm}>
+              Fazer nova denúncia
+            </Button>
           </div>
-          
-          <Button variant="outline" className="w-full max-w-sm" onClick={() => {
-            setStep('form');
-            setDescricao('');
-            setFotoNome(null);
-            setSelectedPostoId(null);
-            setPostoSearch('');
-          }}>
-            Fazer nova denúncia
-          </Button>
+          <MinhasDenuncias />
         </div>
       </div>
     );
@@ -190,39 +150,6 @@ export default function DenunciarPage() {
             Sua denúncia é anônima e nos ajuda a manter um mercado mais justo e seguro.
           </p>
         </div>
-
-        {queue.length > 0 && (
-          <div className="mx-4 mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-amber-900">
-              <Clock3 className="w-4 h-4" />
-              {queue.length === 1 ? '1 denúncia aguardando envio' : `${queue.length} denúncias aguardando envio`}
-            </div>
-            <p className="mt-1 text-xs text-amber-800">
-              {isOnline ? 'Estamos tentando enviar automaticamente.' : 'Ficarão salvas até a conexão voltar.'}
-            </p>
-            <div className="mt-3 space-y-2">
-              {queue.map((item) => (
-                <div key={item.id} className="rounded-lg bg-white/70 px-3 py-2 text-xs text-amber-900">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate">
-                      {item.status === 'error' ? 'Erro persistente' : item.status === 'sending' ? 'Enviando…' : 'Pendente'}
-                    </span>
-                    {item.status === 'error' && (
-                      <button
-                        type="button"
-                        className="font-bold underline shrink-0"
-                        onClick={() => retryDenuncia(item.id)}
-                      >
-                        Tentar novamente
-                      </button>
-                    )}
-                  </div>
-                  {item.error && <div className="mt-1 truncate text-amber-800">{item.error}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="px-4 flex flex-col gap-6">
           <div className="space-y-3">
@@ -347,6 +274,10 @@ export default function DenunciarPage() {
             {isOnline ? 'Enviar Denúncia' : 'Salvar denúncia offline'}
           </Button>
         </form>
+
+        <div className="mt-8">
+          <MinhasDenuncias />
+        </div>
       </div>
     </div>
   );

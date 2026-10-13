@@ -17,6 +17,7 @@ const Rota = lazy(() => import('@/pages/Rota'));
 const Beneficios = lazy(() => import('@/pages/Beneficios'));
 const Denunciar = lazy(() => import('@/pages/Denunciar'));
 const Apresentacao = lazy(() => import('@/pages/Apresentacao'));
+const AdminDenuncias = lazy(() => import('@/pages/AdminDenuncias'));
 const AdminImportar = lazy(() => import('@/pages/AdminImportar'));
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function Router() {
             <Route path="/denunciar" component={Denunciar} />
             <Route path="/apresentacao" component={Apresentacao} />
             <Route path="/admin/importar" component={AdminImportar} />
+            <Route path="/admin/denuncias" component={AdminDenuncias} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>

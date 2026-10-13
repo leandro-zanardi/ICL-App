@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './andamento';
+export * from './andamentoInput';
 export * from './buscarEnderecoParams';
 export * from './carteira';
 export * from './checkinInput';
@@ -14,10 +16,12 @@ export * from './dashboardAssociada';
 export * from './demoEventosInput';
 export * from './demoEventosResultado';
 export * from './demoResultado';
+export * from './denunciaAcompanhamento';
 export * from './denunciaInput';
 export * from './denunciaInputCategoria';
 export * from './denunciaResposta';
 export * from './denunciasMunicipio';
+export * from './denunciaStatus';
 export * from './erro';
 export * from './eventoFeed';
 export * from './eventoFeedEventType';

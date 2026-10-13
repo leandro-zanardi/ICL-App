@@ -299,12 +299,15 @@ export const CriarResgateResponse = zod.object({
  */
 export const criarDenunciaBodyDescricaoMin = 5;
 
+export const criarDenunciaBodyClientIdMax = 64;
+
 
 
 export const CriarDenunciaBody = zod.object({
   "posto_id": zod.string().nullish(),
   "categoria": zod.enum(['qualidade_combustivel', 'volume_bomba', 'posto_clone', 'outra']),
   "descricao": zod.string().min(criarDenunciaBodyDescricaoMin),
+  "client_id": zod.string().max(criarDenunciaBodyClientIdMax).nullish().describe('Identificador gerado no aparelho; evita duplicar a denúncia em reenvios'),
   "foto_nome": zod.string().nullish().describe('Nome do arquivo anexado (opcional, apenas referência no protótipo)')
 })
 
@@ -313,6 +316,31 @@ export const CriarDenunciaResponse = zod.object({
   "protocolo": zod.string(),
   "criado_em": zod.string()
 })
+
+
+/**
+ * @summary Lista as denúncias feitas pelo aparelho (identificação anônima x-session-id)
+ */
+export const ListarMinhasDenunciasResponseItem = zod.object({
+  "id": zod.string(),
+  "client_id": zod.string().nullish(),
+  "protocolo": zod.string(),
+  "categoria": zod.string(),
+  "posto_id": zod.string().nullish(),
+  "posto_nome": zod.string().nullish(),
+  "municipio": zod.string().nullish(),
+  "descricao": zod.string(),
+  "status": zod.enum(['recebida', 'encaminhada', 'respondida']),
+  "criado_em": zod.string(),
+  "andamentos": zod.array(zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['recebida', 'encaminhada', 'respondida']),
+  "orgao": zod.string().nullish(),
+  "mensagem": zod.string(),
+  "criado_em": zod.string()
+}))
+})
+export const ListarMinhasDenunciasResponse = zod.array(ListarMinhasDenunciasResponseItem)
 
 
 /**
@@ -388,6 +416,44 @@ export const ImportarCsvAnpResponse = zod.object({
   "postos_total": zod.int(),
   "postos_selo": zod.int(),
   "erros": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Registra andamento ou resposta de órgão numa denúncia (header x-admin-token)
+ */
+export const RegistrarAndamentoDenunciaParams = zod.object({
+  "protocolo": zod.coerce.string()
+})
+
+export const registrarAndamentoDenunciaBodyMensagemMax = 1000;
+
+
+
+export const RegistrarAndamentoDenunciaBody = zod.object({
+  "status": zod.enum(['recebida', 'encaminhada', 'respondida']),
+  "orgao": zod.string().nullish(),
+  "mensagem": zod.string().min(1).max(registrarAndamentoDenunciaBodyMensagemMax)
+})
+
+export const RegistrarAndamentoDenunciaResponse = zod.object({
+  "id": zod.string(),
+  "client_id": zod.string().nullish(),
+  "protocolo": zod.string(),
+  "categoria": zod.string(),
+  "posto_id": zod.string().nullish(),
+  "posto_nome": zod.string().nullish(),
+  "municipio": zod.string().nullish(),
+  "descricao": zod.string(),
+  "status": zod.enum(['recebida', 'encaminhada', 'respondida']),
+  "criado_em": zod.string(),
+  "andamentos": zod.array(zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['recebida', 'encaminhada', 'respondida']),
+  "orgao": zod.string().nullish(),
+  "mensagem": zod.string(),
+  "criado_em": zod.string()
+}))
 })
 
 

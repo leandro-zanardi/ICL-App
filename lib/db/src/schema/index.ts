@@ -357,9 +357,31 @@ export const denuncias = appSchema.table(
     descricao: text("descricao").notNull(),
     fotoNome: text("foto_nome"),
     status: text("status").notNull().default("recebida"),
+    sessionId: text("session_id"),
+    clientId: text("client_id"),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("denuncias_protocolo_idx").on(t.protocolo)],
+  (t) => [
+    uniqueIndex("denuncias_protocolo_idx").on(t.protocolo),
+    uniqueIndex("denuncias_session_client_idx").on(t.sessionId, t.clientId),
+    index("denuncias_session_idx").on(t.sessionId),
+  ],
+);
+
+// app.denuncia_andamentos — linha do tempo (ICL, ANP, outros órgãos)
+export const denunciaAndamentos = appSchema.table(
+  "denuncia_andamentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    denunciaId: uuid("denuncia_id")
+      .notNull()
+      .references(() => denuncias.id, { onDelete: "cascade" }),
+    status: text("status").notNull(), // recebida | encaminhada | respondida
+    orgao: text("orgao"),
+    mensagem: text("mensagem").notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("denuncia_andamentos_denuncia_idx").on(t.denunciaId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -417,5 +439,6 @@ export type Checkin = typeof checkins.$inferSelect;
 export type Recompensa = typeof recompensas.$inferSelect;
 export type Resgate = typeof resgates.$inferSelect;
 export type Denuncia = typeof denuncias.$inferSelect;
+export type DenunciaAndamento = typeof denunciaAndamentos.$inferSelect;
 export type RotaCache = typeof rotasCache.$inferSelect;
 export type Evento = typeof eventos.$inferSelect;
